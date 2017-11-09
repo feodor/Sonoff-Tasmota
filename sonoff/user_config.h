@@ -38,7 +38,7 @@
 #define PROJECT                "sonoff"          // PROJECT is used as the default topic delimiter and OTA file name
                                                  //   As an IDE restriction it needs to be the same as the main .ino file
 
-#define CFG_HOLDER             0x20161209        // [Reset 1] Change this value to load following default configuration parameters
+#define CFG_HOLDER             0x20171109        // [Reset 1] Change this value to load following default configuration parameters
 #define SAVE_DATA              1                 // [SaveData] Save changed parameters to Flash (0 = disable, 1 - 3600 seconds)
 #define SAVE_STATE             1                 // [SetOption0] Save changed power state to Flash (0 = disable, 1 = enable)
 
@@ -107,7 +107,7 @@
 #define MQTT_CLIENT_ID         "DVES_%06X"       // [MqttClient] Also fall back topic using Chip Id = last 6 characters of MAC address
 
 // -- MQTT - Telemetry ----------------------------
-#define TELE_PERIOD            300               // [TelePeriod] Telemetry (0 = disable, 10 - 3600 seconds)
+#define TELE_PERIOD            60               // [TelePeriod] Telemetry (0 = disable, 10 - 3600 seconds)
 
 // -- MQTT - Domoticz -----------------------------
 #define USE_DOMOTICZ                             // Enable Domoticz (+6k code, +0.3k mem) - Disable by //
@@ -142,7 +142,7 @@
 #define TIME_STD               North, Last, Sun, Oct, 3, +60   // Northern Hemisphere, Last sunday in october 02:00 +60 minutes
 
 // -- Application ---------------------------------
-#define APP_TIMEZONE           1                 // [Timezone] +1 hour (Amsterdam) (-12 .. 12 = hours from UTC, 99 = use TIME_DST/TIME_STD)
+#define APP_TIMEZONE           3                 // [Timezone] +1 hour (Amsterdam) (-12 .. 12 = hours from UTC, 99 = use TIME_DST/TIME_STD)
 #define APP_LEDSTATE           LED_POWER         // [LedState] Function of led (LED_OFF, LED_POWER, LED_MQTTSUB, LED_POWER_MQTTSUB, LED_MQTTPUB, LED_POWER_MQTTPUB, LED_MQTT, LED_POWER_MQTT)
 #define APP_PULSETIME          0                 // [PulseTime] Time in 0.1 Sec to turn off power for relay 1 (0 = disabled)
 #define APP_POWERON_STATE      3                 // [PowerOnState] Power On Relay state (0 = Off, 1 = On, 2 = Toggle Saved state, 3 = Saved state)
@@ -152,7 +152,7 @@
 
 #define KEY_HOLD_TIME          40                // [SetOption32] Number of 0.1 seconds to hold Button or external Pushbutton before sending HOLD message
 #define SWITCH_MODE            TOGGLE            // [SwitchMode] TOGGLE, FOLLOW, FOLLOW_INV, PUSHBUTTON, PUSHBUTTON_INV, PUSHBUTTONHOLD or PUSHBUTTONHOLD_INV (the wall switch state)
-#define WS2812_LEDS            30                // [Pixels] Number of WS2812 LEDs to start with
+//#define WS2812_LEDS            30                // [Pixels] Number of WS2812 LEDs to start with
 
 #define TEMP_CONVERSION        0                 // [SetOption8] Return temperature in (0 = Celsius or 1 = Fahrenheit)
 #define TEMP_RESOLUTION        1                 // [TempRes] Maximum number of decimals (0 - 3) showing sensor Temperature
@@ -165,11 +165,11 @@
 
 //#define USE_DS18x20                              // Optional for multiple DS18B20 and/or DS18S20 sensors using library OneWire (+2k code)
 
-#define USE_I2C                                  // I2C using library wire (+10k code, 0.2k mem) - Disable by //
-  #define USE_SHT                                // Add I2C emulating code for SHT1X sensor
-  #define USE_HTU                                // Add I2C code for HTU21/SI7013/SI7020/SI7021 sensor
-  #define USE_BMP                                // Add I2C code for BMP/BME280 sensor
-  #define USE_BH1750                             // Add I2C code for BH1750 sensor
+//#define USE_I2C                                  // I2C using library wire (+10k code, 0.2k mem) - Disable by //
+//  #define USE_SHT                                // Add I2C emulating code for SHT1X sensor
+//  #define USE_HTU                                // Add I2C code for HTU21/SI7013/SI7020/SI7021 sensor
+//  #define USE_BMP                                // Add I2C code for BMP/BME280 sensor
+//  #define USE_BH1750                             // Add I2C code for BH1750 sensor
 //  #define USE_VEML6070                           // Add I2C code for VEML6070 sensor (+0.5k code)
 //  #define USE_ADS1115                            // Add I2C code for ADS1x15 16 bit A/D converter using library i2cdevlib-Core and i2cdevlib-ADS1115 (+2k code)
 
@@ -177,9 +177,11 @@
 //  #define USE_IR_HVAC                            // Support for HVAC system using IR (+2k code)
   #define USE_IR_RECEIVE                         // Support for IR receiver (+4k code)
 
-#define USE_WS2812                               // WS2812 Led string using library NeoPixelBus (+5k code, +1k mem) - Disable by //
-  #define USE_WS2812_CTYPE     1                 // WS2812 Color type (0 - RGB, 1 - GRB)
+//#define USE_WS2812                               // WS2812 Led string using library NeoPixelBus (+5k code, +1k mem) - Disable by //
+//  #define USE_WS2812_CTYPE     1                 // WS2812 Color type (0 - RGB, 1 - GRB)
 //  #define USE_WS2812_DMA                         // DMA supports only GPIO03 (= Serial RXD) (+1k mem). When USE_WS2812_DMA is enabled expect Exceptions on Pow
+
+#define TEMPERATURE_CONTROL                //Comment for disabling
 
 /*********************************************************************************************\
  * Compile a minimal version if upgrade memory gets tight ONLY TO BE USED FOR UPGRADE STEP 1!
