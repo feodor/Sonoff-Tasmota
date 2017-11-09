@@ -228,6 +228,7 @@
 // support.ino
 #define D_OSWATCH "osWatch"
 #define D_BLOCKED_LOOP "Blocked Loop"
+#define D_SCHEDULED_REBOOT "Scheduled reboot"
 #define D_WPS_FAILED_WITH_STATUS "WPSconfig FAILED with status"
 #define D_ACTIVE_FOR_1_MINUTE "active for 1 minute"
 #define D_FAILED_TO_START "failed to start"
@@ -286,6 +287,11 @@
 #define D_GPIO "GPIO"
 #define D_SERIAL_IN "Serial In"
 #define D_SERIAL_OUT "Serial Out"
+
+#define D_TEMPERATURE_CONTROL	"Temperature control"
+#define D_INVERTED_TEMPERATURE_THESHOLD	"Inverted power"
+#define D_DESTINATION "Destination"
+#define D_DELTA        "Delta"
 
 #define D_WIFI_PARAMETERS "Wifi parameters"
 #define D_SCAN_FOR_WIFI_NETWORKS "Scan for wifi networks"
@@ -687,5 +693,7 @@
 #define D_CMND_SAFEPOWERWINDOW "SafePowerWindow"
 #define D_CMND_MAXENERGY "MaxEnergy"
 #define D_CMND_MAXENERGYSTART "MaxEnergyStart"
+
+#define D_SCHEDULER    "Scheduler"
 
 #endif  // _LANGUAGE_EN_GB_H_

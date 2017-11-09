@@ -70,7 +70,10 @@ void OsWatchLoop()
 String GetResetReason()
 {
   char buff[32];
-  if (oswatch_blocked_loop) {
+  if (oswatch_blocked_loop == 2) {
+    strncpy_P(buff, PSTR(D_SCHEDULED_REBOOT), sizeof(buff));
+    return String(buff);
+  } else if (oswatch_blocked_loop) {
     strncpy_P(buff, PSTR(D_BLOCKED_LOOP), sizeof(buff));
     return String(buff);
   } else {

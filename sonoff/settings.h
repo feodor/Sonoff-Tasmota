@@ -205,6 +205,17 @@ struct SYSCFG {
   uint16_t      pulse_counter_debounce;    // 5D2
   uint8_t       rf_code[17][9];            // 5D4
 
+  uint8_t		free_66d[1];				// 66D
+
+  uint8_t		enable_temperature_control; // 69E
+  uint8_t		inverted_temperature_control; // 69F
+  float                        delta_temperature;              // 670
+  float                        destination_temperature;                // 674
+
+  uint8_t              enable_restart;
+  uint8_t              restart_hour;
+  uint8_t              restart_minute;
+  uint8_t              restart_weekdays;
 } Settings;
 
 struct RTCMEM {

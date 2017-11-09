@@ -1817,6 +1817,16 @@ void PerformEverySecond()
     blockgpio0--;
   }
 
+  if (RtcTime.second < 3 &&
+         Settings.enable_restart && Settings.restart_hour == RtcTime.hour &&
+         Settings.restart_minute == RtcTime.minute &&
+         (Settings.restart_weekdays & (1 << RtcTime.day_of_week)))
+  {
+       RtcSettings.oswatch_blocked_loop = 2;   
+       RtcSettingsSave();
+       ESP.reset();
+  }
+
   for (byte i = 0; i < MAX_PULSETIMERS; i++) {
     if (pulse_timer[i] > 111) {
       pulse_timer[i]--;
@@ -1853,6 +1863,11 @@ void PerformEverySecond()
       for (byte i = 1; i <= devices_present; i++) {
         MqttPublishPowerState(i);
       }
+#ifdef TEMPERATURE_CONTROL
+#ifdef USE_DS18x20
+	ActTemperatureControlDs18x20();
+#endif
+#endif
     }
   }
 

@@ -513,6 +513,12 @@ void SettingsDefaultSet2()
   Settings.pwm_frequency = PWM_FREQ;
   Settings.pwm_range = PWM_RANGE;
   SettingsDefaultSet_5_8_1();
+
+  //TEMPERATURE_CONTROL
+  Settings.enable_temperature_control = 0;
+  Settings.inverted_temperature_control = 0;
+  Settings.delta_temperature = 2;
+  Settings.destination_temperature = 18;
 }
 
 /********************************************************************************************/

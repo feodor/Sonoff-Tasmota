@@ -239,4 +239,62 @@ boolean Xsns05(byte function)
   return result;
 }
 
+/*********************************************************************************************\
+ * Temperature Control
+\*********************************************************************************************/
+
+#ifdef TEMPERATURE_CONTROL
+void
+ActTemperatureControlDs18x20()
+{
+    if (!Settings.enable_temperature_control)
+        return;
+    if (Ds18x20Sensors() == 0)
+        return;
+
+    uint8_t device = 1;
+    bool is_power, should_poweron = true;
+	float current_temperature = NAN, total = 0;
+	byte  counter = 0;
+
+	for (byte i = 0; i < Ds18x20Sensors(); i++) 
+	{
+               if (Ds18x20Read(i, current_temperature))
+		{
+			total += current_temperature;
+			counter++;
+		}
+	}
+
+       if (counter > 0)
+		current_temperature = total / counter;
+       else
+               current_temperature = NAN;
+
+    is_power = ((power >> (device - 1)) & 0x01) ? true : false;
+
+    if (isnan(current_temperature) ||
+        isnan(Settings.destination_temperature) ||
+        isnan(Settings.delta_temperature))
+    {
+        should_poweron = !Settings.inverted_temperature_control;
+    }
+    else if (current_temperature > Settings.destination_temperature + Settings.delta_temperature)
+    {
+        should_poweron = Settings.inverted_temperature_control;
+    }
+    else if (current_temperature < Settings.destination_temperature)
+    {
+        should_poweron = !Settings.inverted_temperature_control;
+    }
+    else
+    {
+        should_poweron = is_power;
+    }
+
+    if (should_poweron != is_power) 
+        ExecuteCommandPower(device, should_poweron ? 1 : 0);
+}
+#endif //TEMPERATURE_CONTROL
+
 #endif  // USE_DS18x20

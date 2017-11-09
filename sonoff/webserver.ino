@@ -194,7 +194,28 @@ const char HTTP_BTN_CONF[] PROGMEM =
 const char HTTP_FORM_MODULE[] PROGMEM =
   "<fieldset><legend><b>&nbsp;" D_MODULE_PARAMETERS "&nbsp;</b></legend><form method='get' action='sv'>"
   "<input id='w' name='w' value='6' hidden><input id='r' name='r' value='1' hidden>"
-  "<br/><b>" D_MODULE_TYPE "</b> ({mt)<br/><select id='g99' name='g99'></select><br/>";
+  "<br/><b>" D_MODULE_TYPE "</b> ({mt)<br/><select id='g99' name='g99'></select><br/>"
+#ifdef TEMPERATURE_CONTROL
+  "<br/><fieldset><legend><b>&nbsp;" D_TEMPERATURE_CONTROL "&nbsp;</b></legend>"
+  "<input style='width:10%;' id='z1' name='z1' type='checkbox'{z1><b>" D_ENABLED "</b><br/>"
+  "<input style='width:10%;' id='z4' name='z4' type='checkbox'{z4><b>" D_INVERTED_TEMPERATURE_THESHOLD "</b><br/><br/>"
+  "<b>" D_DESTINATION ":&nbsp;</b><input style='width:5em;' id='z2' name='z2' value='{z2'><br/>"
+  "<b>" D_DELTA ":&nbsp;</b><input style='width:5em;' id='z3' name='z3' value='{z3'></fieldset>"
+#endif
+  "<br/><fieldset><legend><b>&nbsp;" D_RESTART "&nbsp;</b></legend>"
+  "<input style='width:10%;' id='e1' name='e1' type='checkbox'{e1><b>" D_ENABLED "</b><br/>"
+  "<br/><b>" D_TIME "&nbsp;(HH:MM):&nbsp;</b>"
+  "<input style='width:2em;' id='e2' name='e2' value='{e2'><b>:</b>"
+  "<input style='width:2em;' id='e3' name='e3' value='{e3'><br/>"
+  "<input style='width:2%;' id='d1' name='d1' type='checkbox'{d1><b>{n1</b> "
+  "<input style='width:2%;' id='d2' name='d2' type='checkbox'{d2><b>{n2</b> "
+  "<input style='width:2%;' id='d3' name='d3' type='checkbox'{d3><b>{n3</b> "
+  "<input style='width:2%;' id='d4' name='d4' type='checkbox'{d4><b>{n4</b> "
+  "<input style='width:2%;' id='d5' name='d5' type='checkbox'{d5><b>{n5</b> "
+  "<input style='width:2%;' id='d6' name='d6' type='checkbox'{d6><b>{n6</b> "
+  "<input style='width:2%;' id='d7' name='d7' type='checkbox'{d7><b>{n7</b> "
+  "</fieldset>"
+  ;
 const char HTTP_LNK_ITEM[] PROGMEM =
   "<div><a href='#p' onclick='c(this)'>{v}</a>&nbsp;<span class='q'>{i} {r}%</span></div>";
 const char HTTP_LNK_SCAN[] PROGMEM =
@@ -640,6 +661,23 @@ void HandleModuleConfiguration()
   snprintf_P(stemp, sizeof(stemp), kModules[MODULE].name);
   page.replace(F("{mt"), stemp);
 
+#ifdef TEMPERATURE_CONTROL
+  page.replace(F("{z1"), (Settings.enable_temperature_control) ? F(" checked") : F(""));
+  page.replace(F("{z4"), (Settings.inverted_temperature_control) ? F(" checked") : F(""));
+  page.replace(F("{z2"), String(Settings.destination_temperature));
+  page.replace(F("{z3"), String(Settings.delta_temperature));
+#endif
+  page.replace(F("{e1"), (Settings.enable_restart) ? F(" checked") : F(""));
+  page.replace(F("{e2"), String(Settings.restart_hour));
+  page.replace(F("{e3"), String(Settings.restart_minute));
+  stemp[3] = '\0';
+  for(uint8 i = 1; i<=7; i++)
+  {
+       page.replace("{d" + String(i), (Settings.restart_weekdays & (1 << i)) ? F(" checked") : F(""));
+       memcpy_P(stemp, (D_DAY3LIST) + ((i-1) * 3), 3);
+       page.replace("{n" + String(i), stemp); 
+  }
+
   mytmplt cmodule;
   memcpy_P(&cmodule, &kModules[Settings.module], sizeof(cmodule));
 
@@ -1031,6 +1069,30 @@ snprintf_P(log_data, sizeof(log_data), PSTR(D_LOG_LOG D_CMND_SERIALLOG " %d, " D
     Settings.module = new_module;
     mytmplt cmodule;
     memcpy_P(&cmodule, &kModules[Settings.module], sizeof(cmodule));
+
+#ifdef TEMPERATURE_CONTROL
+	Settings.enable_temperature_control = WebServer->hasArg("z1");
+	Settings.inverted_temperature_control = WebServer->hasArg("z4");
+	if (strlen(WebServer->arg("z2").c_str()))
+               Settings.destination_temperature = atof(WebServer->arg("z2").c_str());
+	if (strlen(WebServer->arg("z3").c_str()))
+               Settings.delta_temperature = atof(WebServer->arg("z3").c_str());
+       if (Settings.delta_temperature < 0)
+               Settings.delta_temperature = 0;
+#endif
+       Settings.enable_restart = WebServer->hasArg("e1");
+       if (strlen(WebServer->arg("e2").c_str()))
+               Settings.restart_hour = atof(WebServer->arg("e2").c_str());
+       if (strlen(WebServer->arg("e3").c_str()))
+               Settings.restart_minute = atof(WebServer->arg("e3").c_str());
+       for(uint8_t i=1; i<=7; i++)
+       {
+               if (WebServer->hasArg("d" + String(i)))
+                       Settings.restart_weekdays |= 1 << i;
+               else
+                       Settings.restart_weekdays &= ~(1 << i);
+       }
+
     String gpios = "";
     for (byte i = 0; i < MAX_GPIO_PIN; i++) {
       if (new_modflg) {
@@ -1482,6 +1544,7 @@ void HandleInformation()
   func += F("}1" D_FLASH_WRITE_COUNT "}2"); func += String(Settings.save_flag); func += stopic;
   func += F("}1" D_BOOT_COUNT "}2"); func += String(Settings.bootcount);
   func += F("}1" D_RESTART_REASON "}2"); func += GetResetReason();
+  func += F("}1" D_CURRENT D_TIME "}2"); func += GetDateAndTime();
   uint8_t maxfn = (devices_present > MAX_FRIENDLYNAMES) ? MAX_FRIENDLYNAMES : devices_present;
   for (byte i = 0; i < maxfn; i++) {
     func += F("}1" D_FRIENDLY_NAME " "); func += i +1; func += F("}2"); func += Settings.friendlyname[i];
