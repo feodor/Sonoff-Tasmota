@@ -1863,11 +1863,6 @@ void PerformEverySecond()
       for (byte i = 1; i <= devices_present; i++) {
         MqttPublishPowerState(i);
       }
-#ifdef TEMPERATURE_CONTROL
-#ifdef USE_DS18x20
-	ActTemperatureControlDs18x20();
-#endif
-#endif
     }
   }
 
@@ -1889,6 +1884,11 @@ void PerformEverySecond()
       }
 
       XsnsCall(FUNC_XSNS_MQTT_SHOW);
+#ifdef TEMPERATURE_CONTROL
+#ifdef USE_DS18x20
+	  ActTemperatureControlDs18x20();
+#endif
+#endif
     }
   }
 

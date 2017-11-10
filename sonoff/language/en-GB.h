@@ -695,5 +695,5 @@
 #define D_CMND_MAXENERGYSTART "MaxEnergyStart"
 
 #define D_SCHEDULER    "Scheduler"
-
+#define D_RATIO			"Ratio"
 #endif  // _LANGUAGE_EN_GB_H_

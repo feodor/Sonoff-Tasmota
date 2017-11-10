@@ -41,6 +41,11 @@ uint8_t ds18x20_index[DS18X20_MAX_SENSORS];
 uint8_t ds18x20_sensors = 0;
 char ds18x20_types[9];
 
+
+uint32_t ds18x20_tc_down_time = 0;
+uint32_t ds18x20_tc_up_time = 0;
+float    ds18x20_tc_duty_ratio = -1;
+
 void Ds18x20Init()
 {
   ds = new OneWire(pin[GPIO_DSB]);
@@ -165,6 +170,7 @@ void Ds18x20Show(boolean json)
 {
   char temperature[10];
   char stemp[10];
+  char ratio[10];
   float t;
 
   byte dsxflg = 0;
@@ -179,9 +185,21 @@ void Ds18x20Show(boolean json)
           stemp[0] = '\0';
         }
         dsxflg++;
-        snprintf_P(mqtt_data, sizeof(mqtt_data), PSTR("%s%s\"DS%d\":{\"" D_TYPE "\":\"%s\", \"" D_ADDRESS "\":\"%s\", \"" D_TEMPERATURE "\":%s}"),
-          mqtt_data, stemp, i +1, ds18x20_types, Ds18x20Addresses(i).c_str(), temperature);
-        strcpy(stemp, ", ");
+		if (ds18x20_tc_duty_ratio >= 0)
+		{
+
+			dtostrfd(ds18x20_tc_duty_ratio, Settings.flag.temperature_resolution, ratio);
+
+        	snprintf_P(mqtt_data, sizeof(mqtt_data), PSTR("%s%s\"DS%d\":{\"" D_TYPE "\":\"%s\", \"" D_ADDRESS "\":\"%s\", \"" D_TEMPERATURE "\":%s, \"" D_RATIO "\":%s}"),
+          			   mqtt_data, stemp, i +1, ds18x20_types, Ds18x20Addresses(i).c_str(), temperature, ratio);
+        	strcpy(stemp, ", ");
+		}
+		else
+		{
+        	snprintf_P(mqtt_data, sizeof(mqtt_data), PSTR("%s%s\"DS%d\":{\"" D_TYPE "\":\"%s\", \"" D_ADDRESS "\":\"%s\", \"" D_TEMPERATURE "\":%s}"),
+          			   mqtt_data, stemp, i +1, ds18x20_types, Ds18x20Addresses(i).c_str(), temperature);
+        	strcpy(stemp, ", ");
+		}
 #ifdef USE_DOMOTICZ
         if (1 == dsxflg) {
           DomoticzSensor(DZ_TEMP, temperature);
@@ -256,20 +274,21 @@ ActTemperatureControlDs18x20()
     bool is_power, should_poweron = true;
 	float current_temperature = NAN, total = 0;
 	byte  counter = 0;
+	float total_time, on_time;
 
 	for (byte i = 0; i < Ds18x20Sensors(); i++) 
 	{
-               if (Ds18x20Read(i, current_temperature))
+        if (Ds18x20Read(i, current_temperature))
 		{
 			total += current_temperature;
 			counter++;
 		}
 	}
 
-       if (counter > 0)
+    if (counter > 0)
 		current_temperature = total / counter;
-       else
-               current_temperature = NAN;
+	else
+		current_temperature = NAN;
 
     is_power = ((power >> (device - 1)) & 0x01) ? true : false;
 
@@ -292,8 +311,27 @@ ActTemperatureControlDs18x20()
         should_poweron = is_power;
     }
 
-    if (should_poweron != is_power) 
+    if (should_poweron != is_power)
+	{
         ExecuteCommandPower(device, should_poweron ? 1 : 0);
+
+		if (should_poweron == !Settings.inverted_temperature_control)
+		{	
+			// turn on even with inverted logic
+			ds18x20_tc_up_time = LocalTime();
+		}
+		else
+		{
+			if (ds18x20_tc_down_time > 0)
+			{
+				total_time = LocalTime() - ds18x20_tc_down_time;
+				on_time = LocalTime() - ds18x20_tc_up_time;
+
+				ds18x20_tc_duty_ratio = 100.0 * on_time/total_time;
+			}
+			ds18x20_tc_down_time = LocalTime();
+		}
+	}
 }
 #endif //TEMPERATURE_CONTROL
 
