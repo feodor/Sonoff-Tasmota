@@ -1884,17 +1884,18 @@ void PerformEverySecond()
       }
 
       XsnsCall(FUNC_XSNS_MQTT_SHOW);
-#ifdef TEMPERATURE_CONTROL
-#ifdef USE_DS18x20
-	  ActTemperatureControlDs18x20();
-#endif
-#endif
     }
   }
 
   if (hlw_flg) {
     HlwMarginCheck();
   }
+
+#ifdef TEMPERATURE_CONTROL
+#ifdef USE_DS18x20
+	ActTemperatureControlDs18x20();
+#endif
+#endif
 
   if ((2 == RtcTime.minute) && latest_uptime_flag) {
     latest_uptime_flag = false;
