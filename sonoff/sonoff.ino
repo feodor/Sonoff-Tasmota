@@ -114,6 +114,7 @@ int16_t save_data_counter;                  // Counter and flag for config save 
 uint8_t mqtt_retry_counter = 0;             // MQTT connection retry counter
 uint8_t fallback_topic_flag = 0;            // Use Topic or FallbackTopic
 unsigned long state_loop_timer = 0;         // State loop timer
+unsigned long every_second_timer =0 ;
 int state = 0;                              // State per second flag
 int mqtt_connection_flag = 2;               // MQTT connection messages flag
 int ota_state_flag = 0;                     // OTA state flag
@@ -500,6 +501,11 @@ void MqttReconnect()
     MqttConnected();
     return;
   }
+
+//    snprintf_P(log_data, sizeof(log_data), PSTR("MqttReconnect %d %d"),
+//			   mqtt_connection_flag, mqtt_retry_counter);
+//   AddLog(LOG_LEVEL_INFO);
+
 #ifdef USE_EMULATION
   UdpDisconnect();
 #endif  // USE_EMULATION
@@ -2130,14 +2136,8 @@ void StateLoop()
   state_loop_timer = millis() + (1000 / STATES);
   state++;
 
-/*-------------------------------------------------------------------------------------------*\
- * Every second
-\*-------------------------------------------------------------------------------------------*/
-
-  if (STATES == state) {
+  if (STATES == state)
     state = 0;
-    PerformEverySecond();
-  }
 
 /*-------------------------------------------------------------------------------------------*\
  * Every 0.1 second
@@ -2770,6 +2770,16 @@ void loop()
   if (millis() >= state_loop_timer) {
     StateLoop();
   }
+
+  if (millis() >= every_second_timer)
+  {
+	PerformEverySecond();
+	
+	if (every_second_timer == 0)
+		every_second_timer = millis();
+	every_second_timer += 1000;
+  }
+
   if (Settings.flag.mqtt_enabled) {
     MqttClient.loop();
   }
@@ -2778,5 +2788,5 @@ void loop()
   }
 
 //  yield();     // yield == delay(0), delay contains yield, auto yield in loop
-  delay(sleep);  // https://github.com/esp8266/Arduino/issues/2021
+  delay(1);  // https://github.com/esp8266/Arduino/issues/2021
 }
