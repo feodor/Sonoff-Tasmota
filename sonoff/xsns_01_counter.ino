@@ -125,7 +125,7 @@ void CounterShow(boolean json)
 
 #define XSNS_01
 
-boolean Xsns01(byte function)
+boolean Xsns01(byte function, void *arg)
 {
   boolean result = false;
 

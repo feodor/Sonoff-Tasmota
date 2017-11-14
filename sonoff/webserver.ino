@@ -322,49 +322,51 @@ uint8_t upload_progress_dot_count;
 
 void StartWebserver(int type, IPAddress ipweb)
 {
-  if (!webserver_state) {
-    if (!WebServer) {
-      WebServer = new ESP8266WebServer((HTTP_MANAGER==type) ? 80 : WEB_PORT);
-      WebServer->on("/", HandleRoot);
-      WebServer->on("/cn", HandleConfiguration);
-      WebServer->on("/md", HandleModuleConfiguration);
-      WebServer->on("/w1", HandleWifiConfigurationWithScan);
-      WebServer->on("/w0", HandleWifiConfiguration);
-      if (Settings.flag.mqtt_enabled) {
-        WebServer->on("/mq", HandleMqttConfiguration);
+  if (!WebServer) {
+    WebServer = new ESP8266WebServer((HTTP_MANAGER==type) ? 80 : WEB_PORT);
+    WebServer->on("/", HandleRoot);
+    WebServer->on("/cn", HandleConfiguration);
+    WebServer->on("/md", HandleModuleConfiguration);
+    WebServer->on("/w1", HandleWifiConfigurationWithScan);
+    WebServer->on("/w0", HandleWifiConfiguration);
+    if (Settings.flag.mqtt_enabled) {
+      WebServer->on("/mq", HandleMqttConfiguration);
 #ifdef USE_DOMOTICZ
-        WebServer->on("/dm", HandleDomoticzConfiguration);
+      WebServer->on("/dm", HandleDomoticzConfiguration);
 #endif  // USE_DOMOTICZ
-      }
-      WebServer->on("/lg", HandleLoggingConfiguration);
-      WebServer->on("/co", HandleOtherConfiguration);
-      WebServer->on("/dl", HandleBackupConfiguration);
-      WebServer->on("/sv", HandleSaveSettings);
-      WebServer->on("/rs", HandleRestoreConfiguration);
-      WebServer->on("/rt", HandleResetConfiguration);
-      WebServer->on("/up", HandleUpgradeFirmware);
-      WebServer->on("/u1", HandleUpgradeFirmwareStart);  // OTA
-      WebServer->on("/u2", HTTP_POST, HandleUploadDone, HandleUploadLoop);
-      WebServer->on("/cm", HandleHttpCommand);
-      WebServer->on("/cs", HandleConsole);
-      WebServer->on("/ax", HandleAjaxConsoleRefresh);
-      WebServer->on("/ay", HandleAjaxStatusRefresh);
-      WebServer->on("/in", HandleInformation);
-      WebServer->on("/rb", HandleRestart);
-      WebServer->on("/fwlink", HandleRoot);  // Microsoft captive portal. Maybe not needed. Might be handled by notFound handler.
-#ifdef USE_EMULATION
-      if (EMUL_WEMO == Settings.flag.emulation) {
-        WebServer->on("/upnp/control/basicevent1", HTTP_POST, HandleUpnpEvent);
-        WebServer->on("/eventservice.xml", HandleUpnpService);
-        WebServer->on("/setup.xml", HandleUpnpSetupWemo);
-      }
-      if (EMUL_HUE == Settings.flag.emulation) {
-        WebServer->on("/description.xml", HandleUpnpSetupHue);
-      }
-#endif  // USE_EMULATION
-      WebServer->onNotFound(HandleNotFound);
     }
+    WebServer->on("/lg", HandleLoggingConfiguration);
+    WebServer->on("/co", HandleOtherConfiguration);
+    WebServer->on("/dl", HandleBackupConfiguration);
+    WebServer->on("/sv", HandleSaveSettings);
+    WebServer->on("/rs", HandleRestoreConfiguration);
+    WebServer->on("/rt", HandleResetConfiguration);
+    WebServer->on("/up", HandleUpgradeFirmware);
+    WebServer->on("/u1", HandleUpgradeFirmwareStart);  // OTA
+    WebServer->on("/u2", HTTP_POST, HandleUploadDone, HandleUploadLoop);
+    WebServer->on("/cm", HandleHttpCommand);
+    WebServer->on("/cs", HandleConsole);
+    WebServer->on("/ax", HandleAjaxConsoleRefresh);
+    WebServer->on("/ay", HandleAjaxStatusRefresh);
+    WebServer->on("/in", HandleInformation);
+    WebServer->on("/rb", HandleRestart);
+    WebServer->on("/fwlink", HandleRoot);  // Microsoft captive portal. Maybe not needed. Might be handled by notFound handler.
+#ifdef USE_EMULATION
+    if (EMUL_WEMO == Settings.flag.emulation) {
+      WebServer->on("/upnp/control/basicevent1", HTTP_POST, HandleUpnpEvent);
+      WebServer->on("/eventservice.xml", HandleUpnpService);
+      WebServer->on("/setup.xml", HandleUpnpSetupWemo);
+    }
+    if (EMUL_HUE == Settings.flag.emulation) {
+      WebServer->on("/description.xml", HandleUpnpSetupHue);
+    }
+#endif  // USE_EMULATION
+    WebServer->onNotFound(HandleNotFound);
+  }
+
+  if (webserver_state == HTTP_OFF) {
     reset_web_log_flag = 0;
+	AddLog_P(LOG_LEVEL_INFO, PSTR("StartWebserver started"));
     WebServer->begin(); // Web server start
   }
   if (webserver_state != type) {
@@ -372,14 +374,14 @@ void StartWebserver(int type, IPAddress ipweb)
       my_hostname, (mdns_begun) ? ".local" : "", ipweb.toString().c_str());
     AddLog(LOG_LEVEL_INFO);
   }
-  if (type) {
+  if (type != HTTP_OFF) {
     webserver_state = type;
   }
 }
 
 void StopWebserver()
 {
-  if (webserver_state) {
+  if (webserver_state != HTTP_OFF) {
     WebServer->close();
     webserver_state = HTTP_OFF;
     AddLog_P(LOG_LEVEL_INFO, PSTR(D_LOG_HTTP D_WEBSERVER_STOPPED));
@@ -530,7 +532,7 @@ void HandleAjaxStatusRefresh()
 
   String page = "";
   mqtt_data[0] = '\0';
-  XsnsCall(FUNC_XSNS_WEB);
+  XsnsCall(FUNC_XSNS_WEB, NULL);
   if (strlen(mqtt_data)) {
     page += FPSTR(HTTP_TABLE100);
     page += mqtt_data;

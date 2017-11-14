@@ -138,7 +138,7 @@ void Ads1115Show(boolean json)
 
 #define XSNS_12
 
-boolean Xsns12(byte function)
+boolean Xsns12(byte function, void *arg)
 {
   boolean result = false;
 

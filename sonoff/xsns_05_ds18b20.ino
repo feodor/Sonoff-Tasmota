@@ -216,7 +216,7 @@ void Ds18b20Show(boolean json)
 
 #define XSNS_05
 
-boolean Xsns05(byte function)
+boolean Xsns05(byte function, void *arg)
 {
   boolean result = false;
 

@@ -142,7 +142,7 @@ void SonoffScShow(boolean json)
 
 #define XSNS_04
 
-boolean Xsns04(byte function)
+boolean Xsns04(byte function, void *arg)
 {
   boolean result = false;
 

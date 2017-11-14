@@ -285,7 +285,7 @@ void HtuShow(boolean json)
 
 #define XSNS_08
 
-boolean Xsns08(byte function)
+boolean Xsns08(byte function, void *arg)
 {
   boolean result = false;
 

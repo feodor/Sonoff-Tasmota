@@ -104,14 +104,14 @@ void XSnsInit()
   xsns_func_ptr[xsns_present++] = &Xsns20;
 #endif
 
-  XsnsCall(FUNC_XSNS_INIT);
+  XsnsCall(FUNC_XSNS_INIT, NULL);
 }
 
 /*********************************************************************************************\
  * Function call to all xsns
 \*********************************************************************************************/
 
-boolean XsnsCall(byte Function)
+boolean XsnsCall(byte Function, void *arg)
 {
   boolean result = false;
 
@@ -122,7 +122,7 @@ boolean XsnsCall(byte Function)
     case FUNC_XSNS_MQTT_SHOW:
     case FUNC_XSNS_WEB:
       for (byte x = 0; x < xsns_present; x++) {
-        xsns_func_ptr[x](Function);
+        xsns_func_ptr[x](Function, arg);
       }
       break;
   }

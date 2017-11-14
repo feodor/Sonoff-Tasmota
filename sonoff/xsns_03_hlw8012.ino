@@ -738,7 +738,7 @@ void HlwMqttStatus()
 
 #define XSNS_03
 
-boolean Xsns03(byte function)
+boolean Xsns03(byte function, void *arg)
 {
   boolean result = false;
 

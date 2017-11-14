@@ -216,7 +216,7 @@ void ShtShow(boolean json)
 
 #define XSNS_07
 
-boolean Xsns07(byte function)
+boolean Xsns07(byte function, void *arg)
 {
   boolean result = false;
 

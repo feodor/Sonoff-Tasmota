@@ -106,7 +106,7 @@ void Veml6070Show(boolean json)
 
 #define XSNS_11
 
-boolean Xsns11(byte function)
+boolean Xsns11(byte function, void *arg)
 {
   boolean result = false;
 

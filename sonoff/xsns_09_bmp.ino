@@ -460,7 +460,7 @@ void BmpShow(boolean json)
 
 #define XSNS_09
 
-boolean Xsns09(byte function)
+boolean Xsns09(byte function, void *arg)
 {
   boolean result = false;
 

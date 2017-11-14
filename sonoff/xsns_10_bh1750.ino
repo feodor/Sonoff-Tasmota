@@ -103,7 +103,7 @@ void Bh1750Show(boolean json)
 
 #define XSNS_10
 
-boolean Xsns10(byte function)
+boolean Xsns10(byte function, void *arg)
 {
   boolean result = false;
 

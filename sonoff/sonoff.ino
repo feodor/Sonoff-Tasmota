@@ -114,8 +114,7 @@ int16_t save_data_counter;                  // Counter and flag for config save 
 uint8_t mqtt_retry_counter = 0;             // MQTT connection retry counter
 uint8_t fallback_topic_flag = 0;            // Use Topic or FallbackTopic
 unsigned long state_loop_timer = 0;         // State loop timer
-unsigned long every_second_timer =0 ;
-int state = 0;                              // State per second flag
+int state_loop_counter = 0;                 // State per second flag
 int mqtt_connection_flag = 2;               // MQTT connection messages flag
 int ota_state_flag = 0;                     // OTA state flag
 int ota_result = 0;                         // OTA result
@@ -185,7 +184,7 @@ uint8_t light_type = 0;                     // Light types
 boolean mdns_begun = false;
 
 uint8_t xsns_present = 0;                   // Number of External Sensors found
-boolean (*xsns_func_ptr[XSNS_MAX])(byte);   // External Sensor Function Pointers for simple implementation of sensors
+boolean (*xsns_func_ptr[XSNS_MAX])(byte, void*);   // External Sensor Function Pointers for simple implementation of sensors
 char version[16];                           // Version string from VERSION define
 char my_hostname[33];                       // Composed Wifi hostname
 char mqtt_client[33];                        // Composed MQTT Clientname
@@ -194,6 +193,10 @@ char mqtt_data[MESSZ];                      // MQTT publish buffer
 char log_data[TOPSZ + MESSZ];               // Logging
 String web_log[MAX_LOG_LINES];              // Web log buffer
 String backlog[MAX_BACKLOG];                // Command backlog
+
+static uint32_t thermocontrol_down_time = 0;
+static uint32_t thermocontrol_up_time = 0;
+static float    thermocontrol_duty_ratio = -1;
 
 /********************************************************************************************/
 
@@ -1798,6 +1801,8 @@ void MqttShowState()
 
 boolean MqttShowSensor()
 {
+  float current_temperature = NAN;
+
   snprintf_P(mqtt_data, sizeof(mqtt_data), PSTR("%s{\"" D_TIME "\":\"%s\""), mqtt_data, GetDateAndTime().c_str());
   int json_data_start = strlen(mqtt_data);
   for (byte i = 0; i < MAX_SWITCHES; i++) {
@@ -1806,15 +1811,89 @@ boolean MqttShowSensor()
       snprintf_P(mqtt_data, sizeof(mqtt_data), PSTR("%s, \"" D_SWITCH "%d\":\"%s\""), mqtt_data, i +1, GetStateText(swm ^ lastwallswitch[i]));
     }
   }
-  XsnsCall(FUNC_XSNS_JSON_APPEND);
+
+  XsnsCall(FUNC_XSNS_JSON_APPEND, &current_temperature);
+#ifdef TEMPERATURE_CONTROL
+  ActThermoControl(current_temperature);
+#endif
+
   boolean json_data_available = (strlen(mqtt_data) - json_data_start);
   if (strstr_P(mqtt_data, PSTR(D_TEMPERATURE))) {
     snprintf_P(mqtt_data, sizeof(mqtt_data), PSTR("%s, \"" D_TEMPERATURE_UNIT "\":\"%c\""), mqtt_data, TempUnit());
   }
+  if (thermocontrol_duty_ratio >= 0)
+  {
+	  char ratio[10];
+
+	  dtostrfd(thermocontrol_duty_ratio, Settings.flag.temperature_resolution, ratio);
+	  snprintf_P(mqtt_data, sizeof(mqtt_data), PSTR("%s, \"" D_RATIO "\":%s"), mqtt_data, ratio);
+  }
+
   snprintf_P(mqtt_data, sizeof(mqtt_data), PSTR("%s}"), mqtt_data);
   return json_data_available;
 }
 
+/*********************************************************************************************\
+ * Temperature Control
+\*********************************************************************************************/
+
+#ifdef TEMPERATURE_CONTROL
+void
+ActThermoControl(float current_temperature)
+{
+    if (!Settings.enable_temperature_control)
+        return;
+    if (Ds18x20Sensors() == 0)
+        return;
+
+    uint8_t device = 1;
+    bool is_power, should_poweron = true;
+	float total_time, on_time;
+
+    is_power = ((power >> (device - 1)) & 0x01) ? true : false;
+
+    if (isnan(current_temperature) ||
+        isnan(Settings.destination_temperature) ||
+        isnan(Settings.delta_temperature))
+    {
+        should_poweron = !Settings.inverted_temperature_control;
+    }
+    else if (current_temperature > Settings.destination_temperature + Settings.delta_temperature)
+    {
+        should_poweron = Settings.inverted_temperature_control;
+    }
+    else if (current_temperature < Settings.destination_temperature)
+    {
+        should_poweron = !Settings.inverted_temperature_control;
+    }
+    else
+    {
+        should_poweron = is_power;
+    }
+
+    if (should_poweron != is_power)
+	{
+        ExecuteCommandPower(device, should_poweron ? 1 : 0);
+
+		if (should_poweron == !Settings.inverted_temperature_control)
+		{	
+			// turn on even with inverted logic
+			thermocontrol_up_time = LocalTime();
+		}
+		else
+		{
+			if (thermocontrol_down_time > 0)
+			{
+				total_time = LocalTime() - thermocontrol_down_time;
+				on_time = LocalTime() - thermocontrol_up_time;
+
+				thermocontrol_duty_ratio = 100.0 * on_time/total_time;
+			}
+			thermocontrol_down_time = LocalTime();
+		}
+	}
+}
+#endif //TEMPERATURE_CONTROL
 /********************************************************************************************/
 
 void PerformEverySecond()
@@ -1875,7 +1954,7 @@ void PerformEverySecond()
   if (Settings.tele_period) {
     tele_period++;
     if (tele_period == Settings.tele_period -1) {
-      XsnsCall(FUNC_XSNS_PREP);
+      XsnsCall(FUNC_XSNS_PREP, NULL);
     }
     if (tele_period >= Settings.tele_period) {
       tele_period = 0;
@@ -1889,7 +1968,7 @@ void PerformEverySecond()
         MqttPublishPrefixTopic_P(2, PSTR(D_RSLT_SENSOR), Settings.flag.mqtt_sensor_retain);
       }
 
-      XsnsCall(FUNC_XSNS_MQTT_SHOW);
+      XsnsCall(FUNC_XSNS_MQTT_SHOW, NULL);
     }
   }
 
@@ -1897,11 +1976,6 @@ void PerformEverySecond()
     HlwMarginCheck();
   }
 
-#ifdef TEMPERATURE_CONTROL
-#ifdef USE_DS18x20
-	ActTemperatureControlDs18x20();
-#endif
-#endif
 
   if ((2 == RtcTime.minute) && latest_uptime_flag) {
     latest_uptime_flag = false;
@@ -2133,17 +2207,22 @@ void StateLoop()
 {
   power_t power_now;
 
-  state_loop_timer = millis() + (1000 / STATES);
-  state++;
+  if (state_loop_timer < 1000 / STATES)
+	  state_loop_timer = millis();
 
-  if (STATES == state)
-    state = 0;
+  state_loop_timer += (1000 / STATES);
+  state_loop_counter++;
+
+  if (STATES == state_loop_counter) {
+    PerformEverySecond();
+    state_loop_counter = 0;
+  }
 
 /*-------------------------------------------------------------------------------------------*\
  * Every 0.1 second
 \*-------------------------------------------------------------------------------------------*/
 
-  if (!(state % (STATES/10))) {
+  if (!(state_loop_counter % (STATES/10))) {
 
     if (mqtt_cmnd_publish) {
       mqtt_cmnd_publish--;  // Clean up
@@ -2221,7 +2300,7 @@ void StateLoop()
  * Every 0.2 second
 \*-------------------------------------------------------------------------------------------*/
 
-  if (!(state % ((STATES/10)*2))) {
+  if (!(state_loop_counter % ((STATES/10)*2))) {
     if (blinks || restart_flag || ota_state_flag) {
       if (restart_flag || ota_state_flag) {
         blinkstate = 1;   // Stay lit
@@ -2252,7 +2331,7 @@ void StateLoop()
  * Every second at 0.2 second interval
 \*-------------------------------------------------------------------------------------------*/
 
-  switch (state) {
+  switch (state_loop_counter) {
   case (STATES/10)*2:
     if (ota_state_flag && (backlog_pointer == backlog_index)) {
       ota_state_flag--;
@@ -2771,15 +2850,6 @@ void loop()
     StateLoop();
   }
 
-  if (millis() >= every_second_timer)
-  {
-	PerformEverySecond();
-	
-	if (every_second_timer == 0)
-		every_second_timer = millis();
-	every_second_timer += 1000;
-  }
-
   if (Settings.flag.mqtt_enabled) {
     MqttClient.loop();
   }
@@ -2790,3 +2860,4 @@ void loop()
 //  yield();     // yield == delay(0), delay contains yield, auto yield in loop
   delay(1);  // https://github.com/esp8266/Arduino/issues/2021
 }
+

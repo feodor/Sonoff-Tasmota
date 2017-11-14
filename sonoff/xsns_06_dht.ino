@@ -257,7 +257,7 @@ void DhtShow(boolean json)
 
 #define XSNS_06
 
-boolean Xsns06(byte function)
+boolean Xsns06(byte function, void *arg)
 {
   boolean result = false;
 
