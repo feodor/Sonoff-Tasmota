@@ -310,8 +310,8 @@ const char HDR_CTYPE_STREAM[] PROGMEM = "application/octet-stream";
 #define DNS_PORT 53
 enum HttpOptions {HTTP_OFF, HTTP_USER, HTTP_ADMIN, HTTP_MANAGER};
 
-DNSServer *DnsServer;
-ESP8266WebServer *WebServer;
+DNSServer *DnsServer = NULL;
+ESP8266WebServer *WebServer = NULL;
 
 boolean remove_duplicate_access_points = true;
 int minimum_signal_quality = -1;
@@ -366,7 +366,6 @@ void StartWebserver(int type, IPAddress ipweb)
 
   if (webserver_state == HTTP_OFF) {
     reset_web_log_flag = 0;
-	AddLog_P(LOG_LEVEL_INFO, PSTR("StartWebserver started"));
     WebServer->begin(); // Web server start
   }
   if (webserver_state != type) {
@@ -386,6 +385,16 @@ void StopWebserver()
     webserver_state = HTTP_OFF;
     AddLog_P(LOG_LEVEL_INFO, PSTR(D_LOG_HTTP D_WEBSERVER_STOPPED));
   }
+}
+
+void RestartWebserver()
+{
+	if (webserver_state != HTTP_OFF && WebServer)
+	{
+		WebServer->close();
+		WebServer->begin();
+    	AddLog_P(LOG_LEVEL_INFO, PSTR(D_LOG_HTTP D_CMND_WEBSERVER " " D_RESTARTING));
+	}
 }
 
 void WifiManagerBegin()

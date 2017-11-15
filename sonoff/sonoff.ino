@@ -570,6 +570,8 @@ void MqttReconnect()
       Settings.mqtt_host, Settings.mqtt_port, MqttClient.state(), mqtt_retry_counter);  //status codes are documented here http://pubsubclient.knolleary.net/api.html#state
     AddLog(LOG_LEVEL_INFO);
   }
+
+  RestartWebserver();
 }
 
 /********************************************************************************************/
@@ -1795,8 +1797,9 @@ void MqttShowState()
   for (byte i = 0; i < devices_present; i++) {
     snprintf_P(mqtt_data, sizeof(mqtt_data), PSTR("%s, \"%s\":\"%s\""), mqtt_data, GetPowerDevice(stemp1, i +1, sizeof(stemp1)), GetStateText(bitRead(power, i)));
   }
-  snprintf_P(mqtt_data, sizeof(mqtt_data), PSTR("%s, \"" D_WIFI "\":{\"" D_AP "\":%d, \"" D_SSID "\":\"%s\", \"" D_RSSI "\":%d, \"" D_APMAC_ADDRESS "\":\"%s\"}}"),
-    mqtt_data, Settings.sta_active +1, Settings.sta_ssid[Settings.sta_active], WifiGetRssiAsQuality(WiFi.RSSI()), WiFi.BSSIDstr().c_str());
+  snprintf_P(mqtt_data, sizeof(mqtt_data), PSTR("%s, \"" D_WIFI "\":{\"" D_AP "\":%d, \"" D_SSID "\":\"%s\", \"" D_RSSI "\":%d, \"" D_APMAC_ADDRESS "\":\"%s\", \"FreeMem\":%d}}"),
+    mqtt_data, Settings.sta_active +1, Settings.sta_ssid[Settings.sta_active],
+	WifiGetRssiAsQuality(WiFi.RSSI()), WiFi.BSSIDstr().c_str(), ESP.getFreeHeap());
 }
 
 boolean MqttShowSensor()
@@ -1820,16 +1823,16 @@ boolean MqttShowSensor()
   boolean json_data_available = (strlen(mqtt_data) - json_data_start);
   if (strstr_P(mqtt_data, PSTR(D_TEMPERATURE))) {
     snprintf_P(mqtt_data, sizeof(mqtt_data), PSTR("%s, \"" D_TEMPERATURE_UNIT "\":\"%c\""), mqtt_data, TempUnit());
-  }
-  if (thermocontrol_duty_ratio >= 0)
-  {
-	  char ratio[10];
+	  if (thermocontrol_duty_ratio >= 0)
+	  {
+		  char ratio[10];
 
-	  dtostrfd(thermocontrol_duty_ratio, Settings.flag.temperature_resolution, ratio);
-	  snprintf_P(mqtt_data, sizeof(mqtt_data), PSTR("%s, \"" D_RATIO "\":%s"), mqtt_data, ratio);
+		  dtostrfd(thermocontrol_duty_ratio, Settings.flag.temperature_resolution, ratio);
+		  snprintf_P(mqtt_data, sizeof(mqtt_data), PSTR("%s, \"" D_RATIO "\":%s"), mqtt_data, ratio);
+  	}
+  	snprintf_P(mqtt_data, sizeof(mqtt_data), PSTR("%s}"), mqtt_data);
   }
 
-  snprintf_P(mqtt_data, sizeof(mqtt_data), PSTR("%s}"), mqtt_data);
   return json_data_available;
 }
 

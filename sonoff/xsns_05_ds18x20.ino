@@ -163,7 +163,6 @@ void Ds18x20Show(boolean json, void *arg)
 {
   char temperature[10];
   char stemp[10];
-  char ratio[10];
   float t;
   float sum = 0;
   byte  counter = 0;
