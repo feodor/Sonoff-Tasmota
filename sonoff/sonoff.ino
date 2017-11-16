@@ -426,7 +426,7 @@ void MqttPublishSimple_P(const char* subtopic, const char *v)
 	{
 		if (!MqttClient.publish(topic, v, false))
 		{
-			snprintf_P(log_data, sizeof(log_data), PSTR(D_LOG_RESULT " failed %s = %s"), topic, mqtt_data);
+			snprintf_P(log_data, sizeof(log_data), PSTR(D_LOG_RESULT " failed %s = %s"), topic, v);
 			AddLog(LOG_LEVEL_INFO);
 		}
 	}
