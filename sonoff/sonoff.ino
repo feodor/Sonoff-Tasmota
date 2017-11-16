@@ -198,6 +198,10 @@ static uint32_t thermocontrol_down_time = 0;
 static uint32_t thermocontrol_up_time = 0;
 static float    thermocontrol_duty_ratio = -1;
 
+#define MAX_MQTT_ATTEMPT_COUNT	(3)
+static uint8 mqtt_attempt_count = MAX_MQTT_ATTEMPT_COUNT;
+
+
 /********************************************************************************************/
 
 void GetMqttClient(char* output, const char* input, byte size)
@@ -228,10 +232,8 @@ void GetMqttClient(char* output, const char* input, byte size)
 
 void GetTopic_P(char *stopic, byte prefix, char *topic, const char* subtopic)
 {
-  char romram[CMDSZ];
   String fulltopic;
 
-  snprintf_P(romram, sizeof(romram), subtopic);
   if (fallback_topic_flag) {
     fulltopic = FPSTR(kPrefixes[prefix]);
     fulltopic += F("/");
@@ -243,7 +245,8 @@ void GetTopic_P(char *stopic, byte prefix, char *topic, const char* subtopic)
     }
     for (byte i = 0; i < 3; i++) {
       if ('\0' == Settings.mqtt_prefix[i][0]) {
-        snprintf_P(Settings.mqtt_prefix[i], sizeof(Settings.mqtt_prefix[i]), kPrefixes[i]);
+		  strncpy_P(Settings.mqtt_prefix[i], kPrefixes[i],
+					sizeof(Settings.mqtt_prefix[i]) - 1);
       }
     }
     fulltopic.replace(F(MQTT_TOKEN_PREFIX), Settings.mqtt_prefix[prefix]);
@@ -254,7 +257,8 @@ void GetTopic_P(char *stopic, byte prefix, char *topic, const char* subtopic)
   if (!fulltopic.endsWith("/")) {
     fulltopic += "/";
   }
-  snprintf_P(stopic, TOPSZ, PSTR("%s%s"), fulltopic.c_str(), romram);
+  strncpy(stopic, fulltopic.c_str(), TOPSZ); 
+  strncpy_P(stopic + fulltopic.length(), subtopic, TOPSZ - fulltopic.length() - 1); 
 }
 
 char* GetStateText(byte state)
@@ -413,6 +417,34 @@ void MqttPublishPrefixTopic_P(uint8_t prefix, const char* subtopic)
   MqttPublishPrefixTopic_P(prefix, subtopic, false);
 }
 
+void MqttPublishSimple_P(const char* subtopic, const char *v)
+{
+	char topic[TOPSZ];
+
+	GetTopic_P(topic, 2, Settings.mqtt_topic, subtopic);
+	if (Settings.flag.mqtt_enabled)
+	{
+		if (!MqttClient.publish(topic, v, false))
+		{
+			snprintf_P(log_data, sizeof(log_data), PSTR(D_LOG_RESULT " failed %s = %s"), topic, mqtt_data);
+			AddLog(LOG_LEVEL_INFO);
+		}
+	}
+}
+
+void MqttPublishSimple_P(const char* subtopic, int v)
+{
+	MqttPublishSimple_P(subtopic, int2char(v));
+}
+
+void MqttPublishSimple_P(const char* subtopic, float v)
+{
+	char sv[20];
+
+	dtostrfd(v, 3, sv);
+	MqttPublishSimple_P(subtopic, sv);
+}
+
 void MqttPublishPowerState(byte device)
 {
   char stopic[TOPSZ];
@@ -546,10 +578,13 @@ void MqttReconnect()
 #endif  // MQTT_HOST_DISCOVERY
 #endif  // USE_DISCOVERY
 #endif  // USE_MQTT_TLS
-  MqttClient.setServer(Settings.mqtt_host, Settings.mqtt_port);
 
   GetTopic_P(stopic, 2, Settings.mqtt_topic, S_LWT);
-  snprintf_P(mqtt_data, sizeof(mqtt_data), S_OFFLINE);
+  snprintf_P(mqtt_data, sizeof(mqtt_data), PSTR(D_OFFLINE " %d"), MqttClient.state());
+  AddLog(LOG_LEVEL_INFO);
+ 
+  MqttClient.disconnect();
+  MqttClient.setServer(Settings.mqtt_host, Settings.mqtt_port);
 
   char *mqtt_user = NULL;
   char *mqtt_pwd = NULL;
@@ -565,10 +600,18 @@ void MqttReconnect()
     snprintf_P(mqtt_data, sizeof(mqtt_data), PSTR(D_ONLINE));
     MqttPublish(stopic, true);
     MqttConnected();
+	mqtt_attempt_count = MAX_MQTT_ATTEMPT_COUNT;
   } else {
     snprintf_P(log_data, sizeof(log_data), PSTR(D_LOG_MQTT D_CONNECT_FAILED_TO " %s:%d, rc %d. " D_RETRY_IN " %d " D_UNIT_SECOND),
       Settings.mqtt_host, Settings.mqtt_port, MqttClient.state(), mqtt_retry_counter);  //status codes are documented here http://pubsubclient.knolleary.net/api.html#state
     AddLog(LOG_LEVEL_INFO);
+	if (mqtt_attempt_count == 0)
+	{
+		RtcSettings.oswatch_blocked_loop = 3;
+		RtcSettingsSave();
+		ESP.reset();
+	}
+	mqtt_attempt_count--;
   }
 
   RestartWebserver();
@@ -1804,8 +1847,6 @@ void MqttShowState()
 
 boolean MqttShowSensor()
 {
-  float current_temperature = NAN;
-
   snprintf_P(mqtt_data, sizeof(mqtt_data), PSTR("%s{\"" D_TIME "\":\"%s\""), mqtt_data, GetDateAndTime().c_str());
   int json_data_start = strlen(mqtt_data);
   for (byte i = 0; i < MAX_SWITCHES; i++) {
@@ -1815,24 +1856,20 @@ boolean MqttShowSensor()
     }
   }
 
-  XsnsCall(FUNC_XSNS_JSON_APPEND, &current_temperature);
-#ifdef TEMPERATURE_CONTROL
-  ActThermoControl(current_temperature);
-#endif
+  XsnsCall(FUNC_XSNS_JSON_APPEND, NULL);
 
   boolean json_data_available = (strlen(mqtt_data) - json_data_start);
-  if (strstr_P(mqtt_data, PSTR(D_TEMPERATURE))) {
+  if (strstr_P(mqtt_data, PSTR(D_TEMPERATURE)))
     snprintf_P(mqtt_data, sizeof(mqtt_data), PSTR("%s, \"" D_TEMPERATURE_UNIT "\":\"%c\""), mqtt_data, TempUnit());
-	  if (thermocontrol_duty_ratio >= 0)
-	  {
-		  char ratio[10];
+  if (thermocontrol_duty_ratio >= 0)
+  {
+	char ratio[10];
 
-		  dtostrfd(thermocontrol_duty_ratio, Settings.flag.temperature_resolution, ratio);
-		  snprintf_P(mqtt_data, sizeof(mqtt_data), PSTR("%s, \"" D_RATIO "\":%s"), mqtt_data, ratio);
-  	}
-  	snprintf_P(mqtt_data, sizeof(mqtt_data), PSTR("%s}"), mqtt_data);
+	dtostrfd(thermocontrol_duty_ratio, Settings.flag.temperature_resolution, ratio);
+	snprintf_P(mqtt_data, sizeof(mqtt_data), PSTR("%s, \"" D_RATIO "\":%s"), mqtt_data, ratio);
   }
 
+  snprintf_P(mqtt_data, sizeof(mqtt_data), PSTR("%s}"), mqtt_data);
   return json_data_available;
 }
 
@@ -1960,8 +1997,10 @@ void PerformEverySecond()
       XsnsCall(FUNC_XSNS_PREP, NULL);
     }
     if (tele_period >= Settings.tele_period) {
+	  float current_temperature = NAN;
       tele_period = 0;
 
+/*
       mqtt_data[0] = '\0';
       MqttShowState();
       MqttPublishPrefixTopic_P(2, PSTR(D_RSLT_STATE));
@@ -1969,7 +2008,28 @@ void PerformEverySecond()
       mqtt_data[0] = '\0';
       if (MqttShowSensor()) {
         MqttPublishPrefixTopic_P(2, PSTR(D_RSLT_SENSOR), Settings.flag.mqtt_sensor_retain);
+#ifdef TEMPERATURE_CONTROL
+  		ActThermoControl(current_temperature);
+#endif
       }
+*/
+
+	  XsnsCall(FUNC_XSNS_JSON_APPEND, &current_temperature);
+#ifdef TEMPERATURE_CONTROL
+  	  ActThermoControl(current_temperature);
+#endif
+
+	  MqttPublishSimple_P(PSTR("time"), GetDateAndTime().c_str()); 
+	  if (!isnan(current_temperature))
+	  	MqttPublishSimple_P(PSTR("temperature"), current_temperature);
+	  if (thermocontrol_duty_ratio >= 0)
+	  	MqttPublishSimple_P(PSTR("ratio"), thermocontrol_duty_ratio);
+	  MqttPublishSimple_P(PSTR("freemem"), (int)ESP.getFreeHeap()); 
+	  MqttPublishSimple_P(PSTR("rssi"), WiFi.RSSI()); 
+	  MqttPublishSimple_P(PSTR("wanip"), WiFi.localIP().toString().c_str()); 
+	  MqttPublishSimple_P(PSTR("uptime"), uptime); 
+	  MqttPublishSimple_P(PSTR("poweron"), bitRead(power, 0 /* device - 1 */ ) ? 1 : 0); 
+	  MqttPublishSimple_P(PSTR("vcc"), (float)ESP.getVcc()/1000); 
 
       XsnsCall(FUNC_XSNS_MQTT_SHOW, NULL);
     }
@@ -2441,7 +2501,7 @@ void StateLoop()
         }
       } else {
         if (!mqtt_retry_counter) {
-          MqttReconnect();
+         MqttReconnect();
         }
       }
     }

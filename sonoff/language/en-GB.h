@@ -229,6 +229,7 @@
 #define D_OSWATCH "osWatch"
 #define D_BLOCKED_LOOP "Blocked Loop"
 #define D_SCHEDULED_REBOOT "Scheduled reboot"
+#define D_MAX_ATTEMPT_REACHED "Max attempt reached"
 #define D_WPS_FAILED_WITH_STATUS "WPSconfig FAILED with status"
 #define D_ACTIVE_FOR_1_MINUTE "active for 1 minute"
 #define D_FAILED_TO_START "failed to start"
