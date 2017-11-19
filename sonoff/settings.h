@@ -226,6 +226,11 @@ struct RTCMEM {
   unsigned long hlw_kWhtotal;              // 008
   unsigned long pulse_counter[MAX_COUNTERS];  // 00C
   power_t       power;                     // 01C
+
+  /* thermocontrol */
+  uint32_t thermocontrol_down_time; //020
+  uint32_t thermocontrol_up_time; //024 
+  float    thermocontrol_duty_ratio; //028
 } RtcSettings;
 
 struct TIME_T {

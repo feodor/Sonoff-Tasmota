@@ -69,9 +69,13 @@ void RtcSettingsLoad()
       RtcSettings.pulse_counter[i] = Settings.pulse_counter[i];
     }
     RtcSettings.power = Settings.power;
+  	RtcSettings.thermocontrol_duty_ratio = -1;	
+  	RtcSettings.thermocontrol_down_time = 0;	
+  	RtcSettings.thermocontrol_up_time = 0;
     RtcSettingsSave();
   }
   rtc_settings_hash = GetRtcSettingsHash();
+
 }
 
 boolean RtcSettingsValid()

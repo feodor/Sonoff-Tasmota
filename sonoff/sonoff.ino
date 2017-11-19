@@ -46,6 +46,7 @@
 #include <ESP8266HTTPClient.h>              // MQTT, Ota
 #include <ESP8266httpUpdate.h>              // Ota
 #include <StreamString.h>                   // Webserver, Updater
+#include <ConstString.h>
 #include <ArduinoJson.h>                    // WemoHue, IRremote, Domoticz
 #ifdef USE_WEBSERVER
   #include <ESP8266WebServer.h>             // WifiManager, Webserver
@@ -193,10 +194,6 @@ char mqtt_data[MESSZ];                      // MQTT publish buffer
 char log_data[TOPSZ + MESSZ];               // Logging
 String web_log[MAX_LOG_LINES];              // Web log buffer
 String backlog[MAX_BACKLOG];                // Command backlog
-
-static uint32_t thermocontrol_down_time = 0;
-static uint32_t thermocontrol_up_time = 0;
-static float    thermocontrol_duty_ratio = -1;
 
 #define MAX_MQTT_ATTEMPT_COUNT	(3)
 static uint8 mqtt_attempt_count = MAX_MQTT_ATTEMPT_COUNT;
@@ -421,9 +418,14 @@ void MqttPublishSimple_P(const char* subtopic, const char *v)
 {
 	char topic[TOPSZ];
 
+	yield();
+
 	GetTopic_P(topic, 2, Settings.mqtt_topic, subtopic);
 	if (Settings.flag.mqtt_enabled)
 	{
+		MqttClient.loop();
+		yield();
+
 		if (!MqttClient.publish(topic, v, false))
 		{
 			snprintf_P(log_data, sizeof(log_data), PSTR(D_LOG_RESULT " failed %s = %s"), topic, v);
@@ -1861,11 +1863,11 @@ boolean MqttShowSensor()
   boolean json_data_available = (strlen(mqtt_data) - json_data_start);
   if (strstr_P(mqtt_data, PSTR(D_TEMPERATURE)))
     snprintf_P(mqtt_data, sizeof(mqtt_data), PSTR("%s, \"" D_TEMPERATURE_UNIT "\":\"%c\""), mqtt_data, TempUnit());
-  if (thermocontrol_duty_ratio >= 0)
+  if (RtcSettings.thermocontrol_duty_ratio >= 0)
   {
 	char ratio[10];
 
-	dtostrfd(thermocontrol_duty_ratio, Settings.flag.temperature_resolution, ratio);
+	dtostrfd(RtcSettings.thermocontrol_duty_ratio, Settings.flag.temperature_resolution, ratio);
 	snprintf_P(mqtt_data, sizeof(mqtt_data), PSTR("%s, \"" D_RATIO "\":%s"), mqtt_data, ratio);
   }
 
@@ -1918,18 +1920,19 @@ ActThermoControl(float current_temperature)
 		if (should_poweron == !Settings.inverted_temperature_control)
 		{	
 			// turn on even with inverted logic
-			thermocontrol_up_time = LocalTime();
+			RtcSettings.thermocontrol_up_time = LocalTime();
 		}
 		else
 		{
-			if (thermocontrol_down_time > 0)
+			if (RtcSettings.thermocontrol_down_time > 0)
 			{
-				total_time = LocalTime() - thermocontrol_down_time;
-				on_time = LocalTime() - thermocontrol_up_time;
+				total_time = LocalTime() - RtcSettings.thermocontrol_down_time;
+				on_time = LocalTime() - RtcSettings.thermocontrol_up_time;
 
-				thermocontrol_duty_ratio = 100.0 * on_time/total_time;
+				RtcSettings.thermocontrol_duty_ratio = 100.0 * on_time/total_time;
+				RtcSettingsSave();
 			}
-			thermocontrol_down_time = LocalTime();
+			RtcSettings.thermocontrol_down_time = LocalTime();
 		}
 	}
 }
@@ -2022,8 +2025,10 @@ void PerformEverySecond()
 	  MqttPublishSimple_P(PSTR("time"), GetDateAndTime().c_str()); 
 	  if (!isnan(current_temperature))
 	  	MqttPublishSimple_P(PSTR("temperature"), current_temperature);
-	  if (thermocontrol_duty_ratio >= 0)
-	  	MqttPublishSimple_P(PSTR("ratio"), thermocontrol_duty_ratio);
+	  if (RtcSettings.thermocontrol_duty_ratio >= 0)
+	  	MqttPublishSimple_P(PSTR("ratio"), RtcSettings.thermocontrol_duty_ratio);
+	  MqttPublishSimple_P(PSTR("destination"), Settings.destination_temperature); 
+	  MqttPublishSimple_P(PSTR("delta"), Settings.delta_temperature); 
 	  MqttPublishSimple_P(PSTR("freemem"), (int)ESP.getFreeHeap()); 
 	  MqttPublishSimple_P(PSTR("rssi"), WiFi.RSSI()); 
 	  MqttPublishSimple_P(PSTR("wanip"), WiFi.localIP().toString().c_str()); 
