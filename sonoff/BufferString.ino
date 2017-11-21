@@ -604,3 +604,49 @@ float BufferString::toFloat(void) const {
 		return atof(buffer);
 	return 0;
 }
+
+int BufferString::sprintf(const char * format, ...) {
+    int ret;
+    va_list arglist;
+    va_start(arglist, format);
+
+    ret = vsprintf(format, arglist);
+
+    va_end(arglist);
+
+    return ret;
+}
+
+int BufferString::vsprintf(const char * format, va_list ap) {
+    int ret;
+
+    ret = vsnprintf(buffer + len, capacity - len, format, ap);
+
+	if (ret + len >= capacity) {
+		len = capacity - 1;
+		buffer[len] = '\0';
+	} else
+		len += ret;
+
+    return ret;
+}
+
+int BufferString::sprintf_P(const __FlashStringHelper * formatP, ...) {
+    int ret;
+    va_list arglist;
+    va_start(arglist, formatP);
+
+    ret = vsnprintf_P(buffer + len, capacity - len, (PGM_P)formatP, arglist);
+
+    va_end(arglist);
+
+	if (ret + len >= capacity) {
+		len = capacity - 1;
+		buffer[len] = '\0';
+	} else
+		len += ret;
+
+    return ret;
+}
+
+

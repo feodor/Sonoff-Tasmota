@@ -201,6 +201,10 @@ class BufferString {
 		long toInt(void) const;
 		float toFloat(void) const;
 
+		int sprintf(const char * format, ...);
+		int vsprintf(const char * format, va_list ap);
+		int sprintf_P(const __FlashStringHelper * formatP, ...);
+
 	protected:
 		char *buffer;			// the actual char array
 		unsigned int capacity;  // the array length minus one (for the '\0')

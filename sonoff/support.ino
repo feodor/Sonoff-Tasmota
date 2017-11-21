@@ -20,6 +20,9 @@
 IPAddress syslog_host_addr;  // Syslog host IP address
 unsigned long syslog_host_refresh = 0;
 
+static char log_data_format[TOPSZ + MESSZ];        // Logging format
+static BufferString log_data_string(log_data, sizeof(log_data));
+
 /*********************************************************************************************\
  * Watchdog extension (https://github.com/esp8266/Arduino/issues/1532)
 \*********************************************************************************************/
@@ -41,8 +44,8 @@ void OsWatchTicker()
   unsigned long last_run = abs(t - oswatch_last_loop_time);
 
 #ifdef DEBUG_THEO
-  snprintf_P(log_data, sizeof(log_data), PSTR(D_LOG_APPLICATION D_OSWATCH " FreeRam %d, rssi %d, last_run %d"), ESP.getFreeHeap(), WifiGetRssiAsQuality(WiFi.RSSI()), last_run);
-  AddLog(LOG_LEVEL_DEBUG);
+  AddLog(LOG_LEVEL_DEBUG, PSTR(D_LOG_APPLICATION D_OSWATCH " FreeRam %d, rssi %d, last_run %d"),
+		 ESP.getFreeHeap(), WifiGetRssiAsQuality(WiFi.RSSI()), last_run);
 #endif  // DEBUG_THEO
   if (last_run >= (OSWATCH_RESET_TIME * 1000)) {
     AddLog_P(LOG_LEVEL_INFO, PSTR(D_LOG_APPLICATION D_OSWATCH " " D_BLOCKED_LOOP ". " D_RESTARTING));
@@ -417,8 +420,7 @@ void WifiWpsStatusCallback(wps_cb_status status)
   if (WPS_CB_ST_SUCCESS == wps_result) {
     wifi_wps_disable();
   } else {
-    snprintf_P(log_data, sizeof(log_data), PSTR(D_LOG_WIFI D_WPS_FAILED_WITH_STATUS " %d"), wps_result);
-    AddLog(LOG_LEVEL_DEBUG);
+    AddLog_PP(LOG_LEVEL_DEBUG, PSTR(D_LOG_WIFI D_WPS_FAILED_WITH_STATUS " %d"), wps_result );
     wifi_config_counter = 2;
   }
 }
@@ -523,9 +525,9 @@ void WifiBegin(uint8_t flag)
   }
   WiFi.hostname(my_hostname);
   WiFi.begin(Settings.sta_ssid[Settings.sta_active], Settings.sta_pwd[Settings.sta_active]);
-  snprintf_P(log_data, sizeof(log_data), PSTR(D_LOG_WIFI D_CONNECTING_TO_AP "%d %s " D_IN_MODE " 11%c " D_AS " %s..."),
-    Settings.sta_active +1, Settings.sta_ssid[Settings.sta_active], kWifiPhyMode[WiFi.getPhyMode() & 0x3], my_hostname);
-  AddLog(LOG_LEVEL_INFO);
+  AddLog_PP(LOG_LEVEL_INFO, PSTR(D_LOG_WIFI D_CONNECTING_TO_AP "%d %s " D_IN_MODE " 11%c " D_AS " %s..."),
+			Settings.sta_active +1, Settings.sta_ssid[Settings.sta_active],
+			kWifiPhyMode[WiFi.getPhyMode() & 0x3], my_hostname);
 }
 
 void WifiCheckIp()
@@ -623,8 +625,8 @@ void WifiCheck(uint8_t param)
             strlcpy(Settings.sta_pwd[0], WiFi.psk().c_str(), sizeof(Settings.sta_pwd[0]));
           }
           Settings.sta_active = 0;
-          snprintf_P(log_data, sizeof(log_data), PSTR(D_LOG_WIFI D_WCFG_1_SMARTCONFIG D_CMND_SSID "1 %s, " D_CMND_PASSWORD "1 %s"), Settings.sta_ssid[0], Settings.sta_pwd[0]);
-          AddLog(LOG_LEVEL_INFO);
+          AddLog_PP(LOG_LEVEL_INFO, PSTR(D_LOG_WIFI D_WCFG_1_SMARTCONFIG D_CMND_SSID "1 %s, " D_CMND_PASSWORD "1 %s"),
+					Settings.sta_ssid[0], Settings.sta_pwd[0]);
         }
       }
       if (!wifi_config_counter) {
@@ -643,8 +645,7 @@ void WifiCheck(uint8_t param)
 #ifdef USE_DISCOVERY
         if (!mdns_begun) {
           mdns_begun = MDNS.begin(my_hostname);
-          snprintf_P(log_data, sizeof(log_data), PSTR(D_LOG_MDNS "%s"), (mdns_begun) ? D_INITIALIZED : D_FAILED);
-          AddLog(LOG_LEVEL_INFO);
+          AddLog_PP(LOG_LEVEL_INFO, PSTR(D_LOG_MDNS "%s"), (mdns_begun) ? D_INITIALIZED : D_FAILED);
         }
 #endif  // USE_DISCOVERY
 #ifdef USE_WEBSERVER
@@ -709,17 +710,15 @@ boolean MdnsDiscoverMqttServer()
 
   int n = MDNS.queryService("mqtt", "tcp");  // Search for mqtt service
 
-  snprintf_P(log_data, sizeof(log_data), PSTR(D_LOG_MDNS D_QUERY_DONE " %d"), n);
-  AddLog(LOG_LEVEL_INFO);
+  AddLog_PP(LOG_LEVEL_INFO, PSTR(D_LOG_MDNS D_QUERY_DONE " %d"), n);
 
   if (n > 0) {
     // Note: current strategy is to get the first MQTT service (even when many are found)
     snprintf_P(Settings.mqtt_host, sizeof(Settings.mqtt_host), MDNS.IP(0).toString().c_str());
     Settings.mqtt_port = MDNS.port(0);
 
-    snprintf_P(log_data, sizeof(log_data), PSTR(D_LOG_MDNS D_MQTT_SERVICE_FOUND " %s, " D_IP_ADDRESS " %s, " D_PORT " %d"),
-      MDNS.hostname(0).c_str(), Settings.mqtt_host, Settings.mqtt_port);
-    AddLog(LOG_LEVEL_INFO);
+    AddLog_PP(LOG_LEVEL_INFO, PSTR(D_LOG_MDNS D_MQTT_SERVICE_FOUND " %s, " D_IP_ADDRESS " %s, " D_PORT " %d"),
+			  MDNS.hostname(0).c_str(), Settings.mqtt_host, Settings.mqtt_port);
   }
 
   return n > 0;
@@ -1109,12 +1108,9 @@ void RtcSecond()
       RtcTime.year = tmpTime.year + 1970;
       daylight_saving_time = RuleToTime(DaylightSavingTime, RtcTime.year);
       standard_time = RuleToTime(StandardTime, RtcTime.year);
-      snprintf_P(log_data, sizeof(log_data), PSTR(D_LOG_APPLICATION "(" D_UTC_TIME ") %s"), GetTime(0).c_str());
-      AddLog(LOG_LEVEL_DEBUG);
-      snprintf_P(log_data, sizeof(log_data), PSTR(D_LOG_APPLICATION "(" D_DST_TIME ") %s"), GetTime(2).c_str());
-      AddLog(LOG_LEVEL_DEBUG);
-      snprintf_P(log_data, sizeof(log_data), PSTR(D_LOG_APPLICATION "(" D_STD_TIME ") %s"), GetTime(3).c_str());
-      AddLog(LOG_LEVEL_DEBUG);
+      AddLog_PP(LOG_LEVEL_DEBUG, PSTR(D_LOG_APPLICATION "(" D_UTC_TIME ") %s"), GetTime(0).c_str());
+      AddLog_PP(LOG_LEVEL_DEBUG, PSTR(D_LOG_APPLICATION "(" D_DST_TIME ") %s"), GetTime(2).c_str());
+      AddLog_PP(LOG_LEVEL_DEBUG, PSTR(D_LOG_APPLICATION "(" D_STD_TIME ") %s"), GetTime(3).c_str());
     }
   }
   utc_time++;
@@ -1321,33 +1317,43 @@ boolean Xsns02(byte function)
  * Syslog
  *
  * Example:
- *   snprintf_P(log_data, sizeof(log_data), PSTR(D_LOG_LOG "Any value %d"), value);
- *   AddLog(LOG_LEVEL_DEBUG);
+ *   AddLog_PP(LOG_LEVEL_DEBUG, PSTR(D_LOG_LOG "Any value %d"), value);
  *
 \*********************************************************************************************/
 
 void Syslog()
 {
-  // Destroys log_data
-  char syslog_preamble[64];  // Hostname + Id
-
   if ((static_cast<uint32_t>(syslog_host_addr) == 0) || ((millis() - syslog_host_refresh) > 60000)) {
     WiFi.hostByName(Settings.syslog_host, syslog_host_addr);
     syslog_host_refresh = millis();
   }
   if (PortUdp.beginPacket(syslog_host_addr, Settings.syslog_port)) {
-    snprintf_P(syslog_preamble, sizeof(syslog_preamble), PSTR("%s ESP-"), my_hostname);
-    memmove(log_data + strlen(syslog_preamble), log_data, sizeof(log_data) - strlen(syslog_preamble));
-    log_data[sizeof(log_data) -1] = '\0';
-    memcpy(log_data, syslog_preamble, strlen(syslog_preamble));
-    PortUdp.write(log_data);
+	BufferString	syslog_preamble(log_data_format, sizeof(log_data_format));
+
+	syslog_preamble = my_hostname;
+	syslog_preamble += FPSTR(" ESP-");
+	PortUdp.write(syslog_preamble.c_str(), syslog_preamble.length());
+	PortUdp.write(log_data);
+	//XXX until log_data is not static here 
+    //PortUdp.write(log_data_string.c_str(), log_data_string.length());
     PortUdp.endPacket();
   } else {
-    syslog_level = 0;
+    syslog_level = 0; // prevent infinite loop
     syslog_timer = SYSLOG_TIMER;
-    snprintf_P(log_data, sizeof(log_data), PSTR(D_LOG_APPLICATION D_SYSLOG_HOST_NOT_FOUND ". " D_RETRY_IN " %d " D_UNIT_SECOND), SYSLOG_TIMER);
-    AddLog(LOG_LEVEL_INFO);
+    AddLog_PP(LOG_LEVEL_INFO, PSTR(D_LOG_APPLICATION D_SYSLOG_HOST_NOT_FOUND ". " D_RETRY_IN " %d " D_UNIT_SECOND),
+			  SYSLOG_TIMER);
   }
+}
+
+bool CheckLogLevel(byte loglevel)
+{
+	return (
+		loglevel <= seriallog_level ||
+#ifdef USE_WEBSERVER
+		(Settings.webserver && (loglevel <= Settings.weblog_level)) || 
+#endif
+		((WL_CONNECTED == WiFi.status()) && (loglevel <= syslog_level))
+	) ? false : true;
 }
 
 void AddLog(byte loglevel)
@@ -1375,20 +1381,41 @@ void AddLog(byte loglevel)
 
 void AddLog_P(byte loglevel, const char *formatP)
 {
-  snprintf_P(log_data, sizeof(log_data), formatP);
-  AddLog(loglevel);
+	if (CheckLogLevel(loglevel))
+		return;
+
+	log_data_string = FPSTR(formatP);
+
+	AddLog(loglevel);
 }
 
 void AddLog_P(byte loglevel, const char *formatP, const char *formatP2)
 {
-  char message[100];
+	if (CheckLogLevel(loglevel))
+		return;
 
-  snprintf_P(log_data, sizeof(log_data), formatP);
-  snprintf_P(message, sizeof(message), formatP2);
-  strncat(log_data, message, sizeof(log_data));
-  AddLog(loglevel);
+	log_data_string = FPSTR(formatP); 
+	log_data_string += FPSTR(formatP2); 
+	AddLog(loglevel);
 }
 
+void AddLog_PP(byte loglevel, const char *formatP, ...)
+{
+	if (CheckLogLevel(loglevel))
+		return;
+
+	BufferString f(log_data_format, sizeof(log_data_format));
+	va_list	arglist;
+
+	log_data_string.reset();
+	f = FPSTR(formatP);
+
+	va_start(arglist, formatP);
+	log_data_string.vsprintf(f.c_str(), arglist);
+	va_end(arglist);
+
+	AddLog(loglevel);
+}
 /*********************************************************************************************\
  *
 \*********************************************************************************************/

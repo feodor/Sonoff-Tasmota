@@ -198,6 +198,7 @@ String backlog[MAX_BACKLOG];                // Command backlog
 #define MAX_MQTT_ATTEMPT_COUNT	(3)
 static uint8 mqtt_attempt_count = MAX_MQTT_ATTEMPT_COUNT;
 
+static char topic_buffer[TOPSZ];
 
 /********************************************************************************************/
 
@@ -227,9 +228,9 @@ void GetMqttClient(char* output, const char* input, byte size)
   }
 }
 
-void GetTopic_P(char *stopic, byte prefix, char *topic, const char* subtopic)
+const char * GetTopic_P(byte prefix, char *topic, const char* subtopic)
 {
-  BufferString fulltopic(stopic, TOPSZ);
+  BufferString fulltopic(topic_buffer, sizeof(topic_buffer));
 
   if (fallback_topic_flag) {
     fulltopic = FPSTR(kPrefixes[prefix]);
@@ -255,6 +256,8 @@ void GetTopic_P(char *stopic, byte prefix, char *topic, const char* subtopic)
     fulltopic += '/';
   }
   fulltopic += FPSTR(subtopic);
+
+  return fulltopic.c_str();
 }
 
 char* GetStateText(byte state)
@@ -342,7 +345,7 @@ void SetLedPower(uint8_t state)
 
 /********************************************************************************************/
 
-void MqttSubscribe(char *topic)
+void MqttSubscribe(const char *topic)
 {
   snprintf_P(log_data, sizeof(log_data), PSTR(D_LOG_MQTT D_SUBSCRIBE_TO " %s"), topic);
   AddLog(LOG_LEVEL_DEBUG);
@@ -404,8 +407,7 @@ void MqttPublishPrefixTopic_P(uint8_t prefix, const char* subtopic, boolean reta
     romram[i] = toupper(romram[i]);
   }
   prefix &= 3;
-  GetTopic_P(stopic, prefix, Settings.mqtt_topic, romram);
-  MqttPublish(stopic, retained);
+  MqttPublish(GetTopic_P(prefix, Settings.mqtt_topic, romram), retained);
 }
 
 void MqttPublishPrefixTopic_P(uint8_t prefix, const char* subtopic)
@@ -415,11 +417,11 @@ void MqttPublishPrefixTopic_P(uint8_t prefix, const char* subtopic)
 
 void MqttPublishSimple_P(const char* subtopic, const char *v)
 {
-	char topic[TOPSZ];
+	const char * topic;
 
 	yield();
 
-	GetTopic_P(topic, 2, Settings.mqtt_topic, subtopic);
+	topic = GetTopic_P(2, Settings.mqtt_topic, subtopic);
 	if (Settings.flag.mqtt_enabled)
 	{
 		MqttClient.loop();
@@ -448,18 +450,18 @@ void MqttPublishSimple_P(const char* subtopic, float v)
 
 void MqttPublishPowerState(byte device)
 {
-  char stopic[TOPSZ];
+  const char * stopic;
   char scommand[16];
 
   if ((device < 1) || (device > devices_present)) {
     device = 1;
   }
   GetPowerDevice(scommand, device, sizeof(scommand));
-  GetTopic_P(stopic, 1, Settings.mqtt_topic, (Settings.flag.mqtt_response) ? scommand : S_RSLT_RESULT);
+  stopic = GetTopic_P(1, Settings.mqtt_topic, (Settings.flag.mqtt_response) ? scommand : S_RSLT_RESULT);
   snprintf_P(mqtt_data, sizeof(mqtt_data), PSTR("{\"%s\":\"%s\"}"), scommand, GetStateText(bitRead(power, device -1)));
   MqttPublish(stopic);
 
-  GetTopic_P(stopic, 1, Settings.mqtt_topic, scommand);
+  stopic = GetTopic_P(1, Settings.mqtt_topic, scommand);
   snprintf_P(mqtt_data, sizeof(mqtt_data), GetStateText(bitRead(power, device -1)));
   MqttPublish(stopic, Settings.flag.mqtt_power_retain);
 }
@@ -479,7 +481,7 @@ void MqttPublishPowerBlinkState(byte device)
 
 void MqttConnected()
 {
-  char stopic[TOPSZ];
+  const char * stopic;
 
   if (Settings.flag.mqtt_enabled) {
 
@@ -487,13 +489,13 @@ void MqttConnected()
     mqtt_data[0] = '\0';
     MqttPublishPrefixTopic_P(0, S_RSLT_POWER);
 
-    GetTopic_P(stopic, 0, Settings.mqtt_topic, PSTR("#"));
+    stopic = GetTopic_P(0, Settings.mqtt_topic, PSTR("#"));
     MqttSubscribe(stopic);
     if (strstr(Settings.mqtt_fulltopic, MQTT_TOKEN_TOPIC) != NULL) {
-      GetTopic_P(stopic, 0, Settings.mqtt_grptopic, PSTR("#"));
+      stopic = GetTopic_P(0, Settings.mqtt_grptopic, PSTR("#"));
       MqttSubscribe(stopic);
       fallback_topic_flag = 1;
-      GetTopic_P(stopic, 0, mqtt_client, PSTR("#"));
+      stopic = GetTopic_P(0, mqtt_client, PSTR("#"));
       fallback_topic_flag = 0;
       MqttSubscribe(stopic);
     }
@@ -529,7 +531,7 @@ void MqttConnected()
 
 void MqttReconnect()
 {
-  char stopic[TOPSZ];
+  const char * stopic;
 
   mqtt_retry_counter = Settings.mqtt_retry;
 
@@ -580,7 +582,7 @@ void MqttReconnect()
 #endif  // USE_DISCOVERY
 #endif  // USE_MQTT_TLS
 
-  GetTopic_P(stopic, 2, Settings.mqtt_topic, S_LWT);
+  stopic = GetTopic_P(2, Settings.mqtt_topic, S_LWT);
   snprintf_P(mqtt_data, sizeof(mqtt_data), PSTR(D_OFFLINE " %d"), MqttClient.state());
   AddLog(LOG_LEVEL_INFO);
  
@@ -792,9 +794,9 @@ boolean MqttCommand(boolean grpflg, char *type, uint16_t index, char *dataBuf, u
     if ((payload >= 0) && (payload <= 1)) {
       if (!payload) {
         for(i = 1; i <= devices_present; i++) {  // Clear MQTT retain in broker
-          GetTopic_P(stemp1, 1, Settings.mqtt_topic, GetPowerDevice(scommand, i, sizeof(scommand)));
           mqtt_data[0] = '\0';
-          MqttPublish(stemp1, Settings.flag.mqtt_power_retain);
+          MqttPublish(GetTopic_P(1, Settings.mqtt_topic, GetPowerDevice(scommand, i, sizeof(scommand))),
+					  Settings.flag.mqtt_power_retain);
         }
       }
       Settings.flag.mqtt_power_retain = payload;
@@ -1587,7 +1589,7 @@ boolean send_button_power(byte key, byte device, byte state)
 // state 3 = hold
 // state 9 = clear retain flag
 
-  char stopic[TOPSZ];
+  const char * stopic;
   char scommand[CMDSZ];
   char stemp1[10];
   boolean result = false;
@@ -1597,7 +1599,7 @@ boolean send_button_power(byte key, byte device, byte state)
     if (!key && (device > devices_present)) {
       device = 1;
     }
-    GetTopic_P(stopic, 0, key_topic, GetPowerDevice(scommand, device, sizeof(scommand), key));
+    stopic = GetTopic_P(0, key_topic, GetPowerDevice(scommand, device, sizeof(scommand), key));
     if (9 == state) {
       mqtt_data[0] = '\0';
     } else {

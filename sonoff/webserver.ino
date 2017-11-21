@@ -1531,9 +1531,8 @@ void HandleInformation()
   }
   AddLog_P(LOG_LEVEL_DEBUG, S_LOG_HTTP, S_INFORMATION);
 
-  char stopic[TOPSZ];
-
   int freeMem = ESP.getFreeHeap();
+  char stopic[TOPSZ];
 
   String page = FPSTR(HTTP_HEAD);
   page.replace(F("{v}"), FPSTR(S_INFORMATION));
@@ -1586,8 +1585,7 @@ void HandleInformation()
     func += F("}1" D_MQTT_USER "}2"); func += Settings.mqtt_user;
     func += F("}1" D_MQTT_TOPIC "}2"); func += Settings.mqtt_topic;
     func += F("}1" D_MQTT_GROUP_TOPIC "}2"); func += Settings.mqtt_grptopic;
-    GetTopic_P(stopic, 0, Settings.mqtt_topic, "");
-    func += F("}1" D_MQTT_FULL_TOPIC "}2"); func += stopic;
+    func += F("}1" D_MQTT_FULL_TOPIC "}2"); func += GetTopic_P(0, Settings.mqtt_topic, "");
 
   } else {
     func += F("}1" D_MQTT "}2" D_DISABLED);
