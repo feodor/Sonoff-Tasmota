@@ -46,7 +46,7 @@
 #include <ESP8266HTTPClient.h>              // MQTT, Ota
 #include <ESP8266httpUpdate.h>              // Ota
 #include <StreamString.h>                   // Webserver, Updater
-#include <ConstString.h>
+#include <BufferString.h>
 #include <ArduinoJson.h>                    // WemoHue, IRremote, Domoticz
 #ifdef USE_WEBSERVER
   #include <ESP8266WebServer.h>             // WifiManager, Webserver
@@ -229,7 +229,7 @@ void GetMqttClient(char* output, const char* input, byte size)
 
 void GetTopic_P(char *stopic, byte prefix, char *topic, const char* subtopic)
 {
-  String fulltopic;
+  BufferString fulltopic(stopic, TOPSZ);
 
   if (fallback_topic_flag) {
     fulltopic = FPSTR(kPrefixes[prefix]);
@@ -251,11 +251,10 @@ void GetTopic_P(char *stopic, byte prefix, char *topic, const char* subtopic)
   }
   fulltopic.replace(F("#"), "");
   fulltopic.replace(F("//"), "/");
-  if (!fulltopic.endsWith("/")) {
-    fulltopic += "/";
+  if (!fulltopic.endsWith('/')) {
+    fulltopic += '/';
   }
-  strncpy(stopic, fulltopic.c_str(), TOPSZ); 
-  strncpy_P(stopic + fulltopic.length(), subtopic, TOPSZ - fulltopic.length() - 1); 
+  fulltopic += FPSTR(subtopic);
 }
 
 char* GetStateText(byte state)
