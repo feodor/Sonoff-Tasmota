@@ -369,9 +369,8 @@ void StartWebserver(int type, IPAddress ipweb)
     WebServer->begin(); // Web server start
   }
   if (webserver_state != type) {
-    snprintf_P(log_data, sizeof(log_data), PSTR(D_LOG_HTTP D_WEBSERVER_ACTIVE_ON " %s%s " D_WITH_IP_ADDRESS " %s"),
-      my_hostname, (mdns_begun) ? ".local" : "", ipweb.toString().c_str());
-    AddLog(LOG_LEVEL_INFO);
+    AddLog_PP(LOG_LEVEL_INFO, PSTR(D_LOG_HTTP D_WEBSERVER_ACTIVE_ON " %s%s " D_WITH_IP_ADDRESS " %s"),
+			  my_hostname, (mdns_begun) ? ".local" : "", ipweb.toString().c_str());
   }
   if (type != HTTP_OFF) {
     webserver_state = type;
@@ -791,8 +790,8 @@ void HandleWifi(boolean scan)
           cssid = WiFi.SSID(indices[i]);
           for (int j = i + 1; j < n; j++) {
             if (cssid == WiFi.SSID(indices[j])) {
-              snprintf_P(log_data, sizeof(log_data), PSTR(D_LOG_WIFI D_DUPLICATE_ACCESSPOINT " %s"), WiFi.SSID(indices[j]).c_str());
-              AddLog(LOG_LEVEL_DEBUG);
+              AddLog_PP(LOG_LEVEL_DEBUG, PSTR(D_LOG_WIFI D_DUPLICATE_ACCESSPOINT " %s"),
+						WiFi.SSID(indices[j]).c_str());
               indices[j] = -1; // set dup aps to index -1
             }
           }
@@ -804,8 +803,8 @@ void HandleWifi(boolean scan)
         if (-1 == indices[i]) {
           continue; // skip dups
         }
-        snprintf_P(log_data, sizeof(log_data), PSTR(D_LOG_WIFI D_SSID " %s, " D_RSSI " %d"), WiFi.SSID(indices[i]).c_str(), WiFi.RSSI(indices[i]));
-        AddLog(LOG_LEVEL_DEBUG);
+        AddLog_PP(LOG_LEVEL_DEBUG, PSTR(D_LOG_WIFI D_SSID " %s, " D_RSSI " %d"), WiFi.SSID(indices[i]).c_str(),
+				  WiFi.RSSI(indices[i]));
         int quality = WifiGetRssiAsQuality(WiFi.RSSI(indices[i]));
 
         if (minimum_signal_quality == -1 || minimum_signal_quality < quality) {
@@ -1014,9 +1013,8 @@ void HandleSaveSettings()
     strlcpy(Settings.sta_pwd[0], (!strlen(WebServer->arg("p1").c_str())) ? STA_PASS1 : WebServer->arg("p1").c_str(), sizeof(Settings.sta_pwd[0]));
     strlcpy(Settings.sta_ssid[1], (!strlen(WebServer->arg("s2").c_str())) ? STA_SSID2 : WebServer->arg("s2").c_str(), sizeof(Settings.sta_ssid[1]));
     strlcpy(Settings.sta_pwd[1], (!strlen(WebServer->arg("p2").c_str())) ? STA_PASS2 : WebServer->arg("p2").c_str(), sizeof(Settings.sta_pwd[1]));
-    snprintf_P(log_data, sizeof(log_data), PSTR(D_LOG_WIFI D_CMND_HOSTNAME " %s, " D_CMND_SSID "1 %s, " D_CMND_PASSWORD "1 %s, " D_CMND_SSID "2 %s, " D_CMND_PASSWORD "2 %s"),
-      Settings.hostname, Settings.sta_ssid[0], Settings.sta_pwd[0], Settings.sta_ssid[1], Settings.sta_pwd[1]);
-    AddLog(LOG_LEVEL_INFO);
+    AddLog_PP(LOG_LEVEL_INFO,PSTR(D_LOG_WIFI D_CMND_HOSTNAME " %s, " D_CMND_SSID "1 %s, " D_CMND_PASSWORD "1 %s, " D_CMND_SSID "2 %s, " D_CMND_PASSWORD "2 %s"),
+			  Settings.hostname, Settings.sta_ssid[0], Settings.sta_pwd[0], Settings.sta_ssid[1], Settings.sta_pwd[1]);
     result += F("<br/>" D_TRYING_TO_CONNECT "<br/>");
     break;
   case 2:
@@ -1035,9 +1033,8 @@ void HandleSaveSettings()
     strlcpy(Settings.mqtt_client, (!strlen(WebServer->arg("mc").c_str())) ? MQTT_CLIENT_ID : WebServer->arg("mc").c_str(), sizeof(Settings.mqtt_client));
     strlcpy(Settings.mqtt_user, (!strlen(WebServer->arg("mu").c_str())) ? MQTT_USER : (!strcmp(WebServer->arg("mu").c_str(),"0")) ? "" : WebServer->arg("mu").c_str(), sizeof(Settings.mqtt_user));
     strlcpy(Settings.mqtt_pwd, (!strlen(WebServer->arg("mp").c_str())) ? MQTT_PASS : (!strcmp(WebServer->arg("mp").c_str(),"0")) ? "" : WebServer->arg("mp").c_str(), sizeof(Settings.mqtt_pwd));
-    snprintf_P(log_data, sizeof(log_data), PSTR(D_LOG_MQTT D_CMND_MQTTHOST " %s, " D_CMND_MQTTPORT " %d, " D_CMND_MQTTCLIENT " %s, " D_CMND_MQTTUSER " %s, " D_CMND_MQTTPASSWORD " %s, " D_CMND_TOPIC " %s, " D_CMND_FULLTOPIC " %s"),
-      Settings.mqtt_host, Settings.mqtt_port, Settings.mqtt_client, Settings.mqtt_user, Settings.mqtt_pwd, Settings.mqtt_topic, Settings.mqtt_fulltopic);
-    AddLog(LOG_LEVEL_INFO);
+    AddLog_PP(LOG_LEVEL_INFO, PSTR(D_LOG_MQTT D_CMND_MQTTHOST " %s, " D_CMND_MQTTPORT " %d, " D_CMND_MQTTCLIENT " %s, " D_CMND_MQTTUSER " %s, " D_CMND_MQTTPASSWORD " %s, " D_CMND_TOPIC " %s, " D_CMND_FULLTOPIC " %s"),
+			  Settings.mqtt_host, Settings.mqtt_port, Settings.mqtt_client, Settings.mqtt_user, Settings.mqtt_pwd, Settings.mqtt_topic, Settings.mqtt_fulltopic);
     break;
   case 3:
     Settings.seriallog_level = (!strlen(WebServer->arg("ls").c_str())) ? SERIAL_LOG_LEVEL : atoi(WebServer->arg("ls").c_str());
@@ -1051,9 +1048,8 @@ void HandleSaveSettings()
     if ((Settings.tele_period > 0) && (Settings.tele_period < 10)) {
       Settings.tele_period = 10;   // Do not allow periods < 10 seconds
     }
-snprintf_P(log_data, sizeof(log_data), PSTR(D_LOG_LOG D_CMND_SERIALLOG " %d, " D_CMND_WEBLOG " %d, " D_CMND_SYSLOG " %d, " D_CMND_LOGHOST " %s, " D_CMND_LOGPORT " %d, " D_CMND_TELEPERIOD " %d"),
-      Settings.seriallog_level, Settings.weblog_level, Settings.syslog_level, Settings.syslog_host, Settings.syslog_port, Settings.tele_period);
-    AddLog(LOG_LEVEL_INFO);
+    AddLog_PP(LOG_LEVEL_INFO, PSTR(D_LOG_LOG D_CMND_SERIALLOG " %d, " D_CMND_WEBLOG " %d, " D_CMND_SYSLOG " %d, " D_CMND_LOGHOST " %s, " D_CMND_LOGPORT " %d, " D_CMND_TELEPERIOD " %d"),
+			  Settings.seriallog_level, Settings.weblog_level, Settings.syslog_level, Settings.syslog_host, Settings.syslog_port, Settings.tele_period);
     break;
 #ifdef USE_DOMOTICZ
   case 4:
@@ -1070,9 +1066,8 @@ snprintf_P(log_data, sizeof(log_data), PSTR(D_LOG_LOG D_CMND_SERIALLOG " %d, " D
     strlcpy(Settings.friendlyname[1], (!strlen(WebServer->arg("a2").c_str())) ? FRIENDLY_NAME"2" : WebServer->arg("a2").c_str(), sizeof(Settings.friendlyname[1]));
     strlcpy(Settings.friendlyname[2], (!strlen(WebServer->arg("a3").c_str())) ? FRIENDLY_NAME"3" : WebServer->arg("a3").c_str(), sizeof(Settings.friendlyname[2]));
     strlcpy(Settings.friendlyname[3], (!strlen(WebServer->arg("a4").c_str())) ? FRIENDLY_NAME"4" : WebServer->arg("a4").c_str(), sizeof(Settings.friendlyname[3]));
-    snprintf_P(log_data, sizeof(log_data), PSTR(D_LOG_OTHER D_MQTT_ENABLE " %s, " D_CMND_EMULATION " %d, " D_CMND_FRIENDLYNAME " %s, %s, %s, %s"),
-      GetStateText(Settings.flag.mqtt_enabled), Settings.flag.emulation, Settings.friendlyname[0], Settings.friendlyname[1], Settings.friendlyname[2], Settings.friendlyname[3]);
-    AddLog(LOG_LEVEL_INFO);
+    AddLog_PP(LOG_LEVEL_INFO, PSTR(D_LOG_OTHER D_MQTT_ENABLE " %s, " D_CMND_EMULATION " %d, " D_CMND_FRIENDLYNAME " %s, %s, %s, %s"),
+			  GetStateText(Settings.flag.mqtt_enabled), Settings.flag.emulation, Settings.friendlyname[0], Settings.friendlyname[1], Settings.friendlyname[2], Settings.friendlyname[3]);
     break;
   case 6:
     byte new_module = (!strlen(WebServer->arg("g99").c_str())) ? MODULE : atoi(WebServer->arg("g99").c_str());
@@ -1117,8 +1112,8 @@ snprintf_P(log_data, sizeof(log_data), PSTR(D_LOG_LOG D_CMND_SERIALLOG " %d, " D
       }
     }
     snprintf_P(stemp, sizeof(stemp), kModules[Settings.module].name);
-    snprintf_P(log_data, sizeof(log_data), PSTR(D_LOG_MODULE "%s " D_CMND_MODULE "%s"), stemp, gpios.c_str());
-    AddLog(LOG_LEVEL_INFO);
+    AddLog_PP(LOG_LEVEL_INFO, PSTR(D_LOG_MODULE "%s " D_CMND_MODULE "%s"),
+			  stemp, gpios.c_str());
     break;
   }
 
@@ -1261,8 +1256,7 @@ void HandleUploadDone()
         snprintf_P(error, sizeof(error), PSTR(D_UPLOAD_ERROR_CODE " %d"), upload_error);
     }
     page += error;
-    snprintf_P(log_data, sizeof(log_data), PSTR(D_UPLOAD ": %s"), error);
-    AddLog(LOG_LEVEL_DEBUG);
+    AddLog_PP(LOG_LEVEL_DEBUG, PSTR(D_UPLOAD ": %s"), error);
     stop_flash_rotate = Settings.flag.stop_flash_rotate;
   } else {
     page += F("green'>" D_SUCCESSFUL "</font></b><br/>");
@@ -1298,8 +1292,7 @@ void HandleUploadLoop()
       return;
     }
     SettingsSave(1);  // Free flash for upload
-    snprintf_P(log_data, sizeof(log_data), PSTR(D_LOG_UPLOAD D_FILE " %s ..."), upload.filename.c_str());
-    AddLog(LOG_LEVEL_INFO);
+    AddLog_PP(LOG_LEVEL_INFO, PSTR(D_LOG_UPLOAD D_FILE " %s ..."), upload.filename.c_str());
     if (!upload_file_type) {
       mqtt_retry_counter = 60;
 #ifdef USE_EMULATION
@@ -1378,8 +1371,8 @@ void HandleUploadLoop()
       }
     }
     if (!upload_error) {
-      snprintf_P(log_data, sizeof(log_data), PSTR(D_LOG_UPLOAD D_SUCCESSFUL " %u bytes. " D_RESTARTING), upload.totalSize);
-      AddLog(LOG_LEVEL_INFO);
+      AddLog_PP(LOG_LEVEL_INFO, PSTR(D_LOG_UPLOAD D_SUCCESSFUL " %u bytes. " D_RESTARTING),
+				upload.totalSize);
     }
   } else if (UPLOAD_FILE_ABORTED == upload.status) {
     restart_flag = 0;
@@ -1479,8 +1472,7 @@ void HandleAjaxConsoleRefresh()
   if (strlen(WebServer->arg("c1").c_str())) {
 //    snprintf_P(svalue, sizeof(svalue), WebServer->arg("c1").c_str());  // Processes FullTopic %p
     strlcpy(svalue, WebServer->arg("c1").c_str(), sizeof(svalue));       // Fixed 5.8.0b
-    snprintf_P(log_data, sizeof(log_data), PSTR(D_LOG_COMMAND "%s"), svalue);
-    AddLog(LOG_LEVEL_INFO);
+    AddLog_PP(LOG_LEVEL_INFO, PSTR(D_LOG_COMMAND "%s"), svalue);
 //    byte syslog_now = syslog_level;
 //    syslog_level = 0;  // Disable UDP syslog to not trigger hardware WDT - Seems to work fine since 5.7.1d (global logging)
     ExecuteCommand(svalue);
