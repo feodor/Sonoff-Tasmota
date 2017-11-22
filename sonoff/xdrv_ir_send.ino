@@ -90,9 +90,8 @@ void IrReceiveCheck()
 
   if (irrecv->decode(&results)) {
 
-    snprintf_P(log_data, sizeof(log_data), PSTR(D_LOG_IRR "RawLen %d, Bits %d, Value %08X, Decode %d"),
-               results.rawlen, results.bits, results.value, results.decode_type);
-    AddLog(LOG_LEVEL_DEBUG);
+    AddLog_PP(LOG_LEVEL_DEBUG, PSTR(D_LOG_IRR "RawLen %d, Bits %d, Value %08X, Decode %d"),
+			  results.rawlen, results.bits, results.value, results.decode_type);
 
     unsigned long now = millis();
     if ((now - ir_lasttime > IR_TIME_AVOID_DUPLICATE) && (UNKNOWN != results.decode_type) && (results.bits > 0)) {
@@ -249,10 +248,6 @@ boolean IrHvacMitsubishi(const char *HVAC_Mode, const char *HVAC_FanMode, boolea
   mitsubir->setVane(MITSUBISHI_AC_VANE_AUTO);
   mitsubir->send();
 
-  //  snprintf_P(log_data, sizeof(log_data), PSTR("IRHVAC: Mitsubishi Power %d, Mode %d, FanSpeed %d, Temp %d, VaneMode %d"),
-  //    mitsubir->getPower(), mitsubir->getMode(), mitsubir->getFan(), mitsubir->getTemp(), mitsubir->getVane());
-  //  AddLog(LOG_LEVEL_DEBUG);
-
   return false;
 }
 #endif // USE_IR_HVAC
@@ -351,10 +346,6 @@ boolean IrSendCommand(char *type, uint16_t index, char *dataBuf, uint16_t data_l
         HVAC_Mode = root[D_IRHVAC_MODE];
         HVAC_FanMode = root[D_IRHVAC_FANSPEED];
         HVAC_Temp = root[D_IRHVAC_TEMP];
-
-        //        snprintf_P(log_data, sizeof(log_data), PSTR("IRHVAC: Received Vendor %s, Power %d, Mode %s, FanSpeed %s, Temp %d"),
-        //          HVAC_Vendor, HVAC_Power, HVAC_Mode, HVAC_FanMode, HVAC_Temp);
-        //        AddLog(LOG_LEVEL_DEBUG);
 
         if (HVAC_Vendor == NULL || !strcasecmp_P(HVAC_Vendor, PSTR("TOSHIBA"))) {
           error = IrHvacToshiba(HVAC_Mode, HVAC_FanMode, HVAC_Power, HVAC_Temp);

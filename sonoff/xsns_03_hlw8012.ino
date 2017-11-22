@@ -206,8 +206,9 @@ void HlwReadEnergy(byte option, float &total_energy, float &daily_energy, float 
   unsigned long hlw_i;
   uint16_t hlw_period;
 
-//snprintf_P(log_data, sizeof(log_data), PSTR("HLW: CF %d, CF1U %d (%d), CF1I %d (%d)"), hlw_cf_pulse_length, hlw_cf1_voltage_pulse_length, hlw_cf1_voltage_max_pulse_counter, hlw_cf1_current_pulse_length, hlw_cf1_current_max_pulse_counter);
-//AddLog(LOG_LEVEL_DEBUG);
+//AddLog_PP(LOG_LEVEL_DEBUG, PSTR("HLW: CF %d, CF1U %d (%d), CF1I %d (%d)"),
+//  			hlw_cf_pulse_length, hlw_cf1_voltage_pulse_length, hlw_cf1_voltage_max_pulse_counter,
+//			hlw_cf1_current_pulse_length, hlw_cf1_current_max_pulse_counter);
 
   total_energy = (float)(RtcSettings.hlw_kWhtotal + (cur_kWhtoday / 1000)) / 100000;
   daily_energy = 0;
@@ -348,8 +349,7 @@ void HlwMarginCheck()
     uvoltage = (uint16_t)(voltage);
     ucurrent = (uint16_t)(current * 1000);
 
-//    snprintf_P(log_data, sizeof(log_data), PSTR("HLW: W %d, U %d, I %d"), watts, voltage, ucurrent);
-//    AddLog(LOG_LEVEL_DEBUG);
+//    AddLog_PP(LOG_LEVEL_DEBUG, PSTR("HLW: W %d, U %d, I %d"), watts, voltage, ucurrent);
 
     snprintf_P(mqtt_data, sizeof(mqtt_data), PSTR("{"));
     jsonflg = 0;

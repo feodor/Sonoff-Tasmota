@@ -245,8 +245,7 @@ uint8_t HtuDetect()
     delay_humidity=23;
   }
   if (success) {
-    snprintf_P(log_data, sizeof(log_data), S_LOG_I2C_FOUND_AT, htu_types, htu_address);
-    AddLog(LOG_LEVEL_DEBUG);
+    AddLog_PP(LOG_LEVEL_DEBUG, S_LOG_I2C_FOUND_AT, htu_types, htu_address);
   } else {
     htu_type = 0;
   }

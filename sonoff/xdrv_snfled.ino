@@ -528,8 +528,8 @@ void LightAnimate()
         if (light_type < LT_PWM6) {
           if (pin[GPIO_PWM1 +i] < 99) {
             uint16_t curcol = cur_col[i] * (Settings.pwm_range / 255);
-//            snprintf_P(log_data, sizeof(log_data), PSTR(D_LOG_APPLICATION "Cur_Col%d %d, CurCol %d"), i, cur_col[i], curcol);
-//            AddLog(LOG_LEVEL_DEBUG);
+//            AddLog_PP(LOG_LEVEL_DEBUG,  PSTR(D_LOG_APPLICATION "Cur_Col%d %d, CurCol %d"),
+//						i, cur_col[i], curcol);
             analogWrite(pin[GPIO_PWM1 +i], bitRead(pwm_inverted, i) ? Settings.pwm_range - curcol : curcol);
           }
         }

@@ -400,8 +400,7 @@ boolean BmpDetect()
     strcpy_P(bmp_types, PSTR("BME280"));
   }
   if (success) {
-    snprintf_P(log_data, sizeof(log_data), S_LOG_I2C_FOUND_AT, bmp_types, bmp_address);
-    AddLog(LOG_LEVEL_DEBUG);
+    AddLog_PP(LOG_LEVEL_DEBUG, S_LOG_I2C_FOUND_AT, bmp_types, bmp_address);
   }
   else {
     bmp_type = 0;

@@ -59,8 +59,7 @@ void SonoffScSend(const char *data)
 {
   Serial.write(data);
   Serial.write('\x1B');
-  snprintf_P(log_data, sizeof(log_data), PSTR(D_LOG_SERIAL D_TRANSMIT " %s"), data);
-  AddLog(LOG_LEVEL_DEBUG);
+  AddLog_PP(LOG_LEVEL_DEBUG, PSTR(D_LOG_SERIAL D_TRANSMIT " %s"), data);
 }
 
 void SonoffScInit()
@@ -76,8 +75,7 @@ void SonoffScSerialInput(char *rcvstat)
   char *str;
   uint16_t value[5] = { 0 };
 
-  snprintf_P(log_data, sizeof(log_data), PSTR(D_LOG_SERIAL D_RECEIVED " %s"), rcvstat);
-  AddLog(LOG_LEVEL_DEBUG);
+  AddLog_PP(LOG_LEVEL_DEBUG, PSTR(D_LOG_SERIAL D_RECEIVED " %s"), rcvstat);
 
   if (!strncasecmp_P(rcvstat, PSTR("AT+UPDATE="), 10)) {
     int8_t i = -1;

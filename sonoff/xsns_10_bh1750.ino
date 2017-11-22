@@ -66,8 +66,7 @@ boolean Bh1750Detect()
     bh1750_type = 1;
   }
   if (success) {
-    snprintf_P(log_data, sizeof(log_data), S_LOG_I2C_FOUND_AT, "BH1750", bh1750_address);
-    AddLog(LOG_LEVEL_DEBUG);
+    AddLog_PP(LOG_LEVEL_DEBUG, S_LOG_I2C_FOUND_AT, "BH1750", bh1750_address);
   } else {
     bh1750_type = 0;
   }

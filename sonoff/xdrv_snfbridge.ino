@@ -48,8 +48,7 @@ void SonoffBridgeReceived()
   for (byte i = 0; i < serial_in_byte_counter; i++) {
     snprintf_P(svalue, sizeof(svalue), PSTR("%s%02X "), svalue, serial_in_buffer[i]);
   }
-  snprintf_P(log_data, sizeof(log_data), PSTR(D_LOG_BRIDGE D_RECEIVED " %s"), svalue);
-  AddLog(LOG_LEVEL_DEBUG);
+  AddLog_PP(LOG_LEVEL_DEBUG, PSTR(D_LOG_BRIDGE D_RECEIVED " %s"), svalue);
 
   if (0xA2 == serial_in_buffer[0]) {       // Learn timeout
     sonoff_bridge_learn_active = 0;

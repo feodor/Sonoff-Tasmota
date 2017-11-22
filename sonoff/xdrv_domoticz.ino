@@ -149,8 +149,7 @@ boolean DomoticzMqttData(char *topicBuf, uint16_t stopicBuf, char *dataBuf, uint
     idx = domoticz["idx"];
     nvalue = domoticz["nvalue"];
 
-    snprintf_P(log_data, sizeof(log_data), PSTR(D_LOG_DOMOTICZ "idx %d, nvalue %d"), idx, nvalue);
-    AddLog(LOG_LEVEL_DEBUG_MORE);
+    AddLog_PP(LOG_LEVEL_DEBUG_MORE, PSTR(D_LOG_DOMOTICZ "idx %d, nvalue %d"), idx, nvalue);
 
     if ((idx > 0) && (nvalue >= 0) && (nvalue <= 2)) {
       uint8_t maxdev = (devices_present > MAX_DOMOTICZ_IDX) ? MAX_DOMOTICZ_IDX : devices_present;
@@ -181,8 +180,8 @@ boolean DomoticzMqttData(char *topicBuf, uint16_t stopicBuf, char *dataBuf, uint
       return 1;
     }
 
-    snprintf_P(log_data, sizeof(log_data), PSTR(D_LOG_DOMOTICZ D_RECEIVED_TOPIC " %s, " D_DATA " %s"), topicBuf, dataBuf);
-    AddLog(LOG_LEVEL_DEBUG_MORE);
+    AddLog_PP(LOG_LEVEL_DEBUG_MORE, PSTR(D_LOG_DOMOTICZ D_RECEIVED_TOPIC " %s, " D_DATA " %s"),
+			  topicBuf, dataBuf);
 
     domoticz_update_flag = 0;
   }
@@ -365,16 +364,14 @@ void DomoticzSaveSettings()
     Settings.domoticz_sensor_idx[i] = (!strlen(WebServer->arg(stemp).c_str())) ? 0 : atoi(WebServer->arg(stemp).c_str());
   }
   Settings.domoticz_update_timer = (!strlen(WebServer->arg("ut").c_str())) ? DOMOTICZ_UPDATE_TIMER : atoi(WebServer->arg("ut").c_str());
-  snprintf_P(log_data, sizeof(log_data), PSTR(D_LOG_DOMOTICZ D_CMND_IDX " %d, %d, %d, %d, " D_CMND_UPDATETIMER " %d"),
-    Settings.domoticz_relay_idx[0], Settings.domoticz_relay_idx[1], Settings.domoticz_relay_idx[2], Settings.domoticz_relay_idx[3],
-    Settings.domoticz_update_timer);
-  AddLog(LOG_LEVEL_INFO);
-  snprintf_P(log_data, sizeof(log_data), PSTR(D_LOG_DOMOTICZ D_CMND_KEYIDX " %d, %d, %d, %d, " D_CMND_SWITCHIDX " %d, %d, %d, %d, " D_CMND_SENSORIDX " %d, %d, %d, %d, %d, %d, %d, %d"),
+  AddLog_PP(LOG_LEVEL_INFO, PSTR(D_LOG_DOMOTICZ D_CMND_IDX " %d, %d, %d, %d, " D_CMND_UPDATETIMER " %d"),
+			Settings.domoticz_relay_idx[0], Settings.domoticz_relay_idx[1], Settings.domoticz_relay_idx[2],
+			Settings.domoticz_relay_idx[3], Settings.domoticz_update_timer);
+  AddLog_PP(LOG_LEVEL_INFO, PSTR(D_LOG_DOMOTICZ D_CMND_KEYIDX " %d, %d, %d, %d, " D_CMND_SWITCHIDX " %d, %d, %d, %d, " D_CMND_SENSORIDX " %d, %d, %d, %d, %d, %d, %d, %d"),
     Settings.domoticz_key_idx[0], Settings.domoticz_key_idx[1], Settings.domoticz_key_idx[2], Settings.domoticz_key_idx[3],
     Settings.domoticz_switch_idx[0], Settings.domoticz_switch_idx[1], Settings.domoticz_switch_idx[2], Settings.domoticz_switch_idx[3],
     Settings.domoticz_sensor_idx[0], Settings.domoticz_sensor_idx[1], Settings.domoticz_sensor_idx[2], Settings.domoticz_sensor_idx[3],
     Settings.domoticz_sensor_idx[4], Settings.domoticz_sensor_idx[5], Settings.domoticz_sensor_idx[6], Settings.domoticz_sensor_idx[7]);
-  AddLog(LOG_LEVEL_INFO);
 }
 #endif  // USE_WEBSERVER
 #endif  // USE_DOMOTICZ

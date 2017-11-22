@@ -21,6 +21,7 @@ IPAddress syslog_host_addr;  // Syslog host IP address
 unsigned long syslog_host_refresh = 0;
 
 static char log_data_format[TOPSZ + MESSZ];        // Logging format
+static char log_data[TOPSZ + MESSZ];               // Logging
 BufferString log_data_string(log_data, sizeof(log_data));
 
 /*********************************************************************************************\

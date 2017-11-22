@@ -34,8 +34,7 @@ void CounterUpdate(byte index)
       RtcSettings.pulse_counter[index -1]++;
     }
 
-//    snprintf_P(log_data, sizeof(log_data), PSTR("CNTR: Interrupt %d"), index);
-//    AddLog(LOG_LEVEL_DEBUG);
+//    AddLog_PP(LOG_LEVEL_DEBUG, PSTR("CNTR: Interrupt %d"), index);
   }
 }
 

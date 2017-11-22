@@ -79,9 +79,8 @@ void WemoRespondToMSearch()
   } else {
     snprintf_P(message, sizeof(message), PSTR(D_FAILED_TO_SEND_RESPONSE));
   }
-  snprintf_P(log_data, sizeof(log_data), PSTR(D_LOG_UPNP D_WEMO " %s " D_TO " %s:%d"),
-    message, PortUdp.remoteIP().toString().c_str(), PortUdp.remotePort());
-  AddLog(LOG_LEVEL_DEBUG);
+  AddLog_PP(LOG_LEVEL_DEBUG, PSTR(D_LOG_UPNP D_WEMO " %s " D_TO " %s:%d"),
+			message, PortUdp.remoteIP().toString().c_str(), PortUdp.remotePort());
 }
 
 /*********************************************************************************************\
@@ -167,9 +166,8 @@ void HueRespondToMSearch()
   } else {
     snprintf_P(message, sizeof(message), PSTR(D_FAILED_TO_SEND_RESPONSE));
   }
-  snprintf_P(log_data, sizeof(log_data), PSTR(D_LOG_UPNP D_HUE " %s " D_TO " %s:%d"),
-    message, PortUdp.remoteIP().toString().c_str(), PortUdp.remotePort());
-  AddLog(LOG_LEVEL_DEBUG);
+  AddLog_PP(LOG_LEVEL_DEBUG, PSTR(D_LOG_UPNP D_HUE " %s " D_TO " %s:%d"),
+			message, PortUdp.remoteIP().toString().c_str(), PortUdp.remotePort());
 }
 
 /*********************************************************************************************\
@@ -432,8 +430,8 @@ void HandleUpnpSetupHue()
 
 void HueNotImplemented(String *path)
 {
-  snprintf_P(log_data, sizeof(log_data), PSTR(D_LOG_HTTP D_HUE_API_NOT_IMPLEMENTED " (%s)"), path->c_str());
-  AddLog(LOG_LEVEL_DEBUG_MORE);
+  AddLog_PP(LOG_LEVEL_DEBUG_MORE, PSTR(D_LOG_HTTP D_HUE_API_NOT_IMPLEMENTED " (%s)"),
+			path->c_str());
 
   WebServer->send(200, FPSTR(HDR_CTYPE_JSON), "{}");
 }
@@ -698,12 +696,12 @@ void HandleHueApi(String *path)
 
   path->remove(0, 4);                                // remove /api
   uint16_t apilen = path->length();
-  snprintf_P(log_data, sizeof(log_data), PSTR(D_LOG_HTTP D_HUE_API " (%s)"), path->c_str());
-  AddLog(LOG_LEVEL_DEBUG_MORE);                      // HTP: Hue API (//lights/1/state)
+  // HTP: Hue API (//lights/1/state)
+  AddLog_PP(LOG_LEVEL_DEBUG_MORE, PSTR(D_LOG_HTTP D_HUE_API " (%s)"), path->c_str());
   for (args = 0; args < WebServer->args(); args++) {
     String json = WebServer->arg(args);
-    snprintf_P(log_data, sizeof(log_data), PSTR(D_LOG_HTTP D_HUE_POST_ARGS " (%s)"), json.c_str());
-    AddLog(LOG_LEVEL_DEBUG_MORE);                    // HTP: Hue POST args ({"on":false})
+	// HTP: Hue POST args ({"on":false})
+    AddLog_PP(LOG_LEVEL_DEBUG_MORE, PSTR(D_LOG_HTTP D_HUE_POST_ARGS " (%s)"), json.c_str());
   }
 
   if (path->endsWith("/invalid/")) {}                // Just ignore
