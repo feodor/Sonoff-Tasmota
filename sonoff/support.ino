@@ -21,7 +21,7 @@ IPAddress syslog_host_addr;  // Syslog host IP address
 unsigned long syslog_host_refresh = 0;
 
 static char log_data_format[TOPSZ + MESSZ];        // Logging format
-static BufferString log_data_string(log_data, sizeof(log_data));
+BufferString log_data_string(log_data, sizeof(log_data));
 
 /*********************************************************************************************\
  * Watchdog extension (https://github.com/esp8266/Arduino/issues/1532)
@@ -44,7 +44,7 @@ void OsWatchTicker()
   unsigned long last_run = abs(t - oswatch_last_loop_time);
 
 #ifdef DEBUG_THEO
-  AddLog(LOG_LEVEL_DEBUG, PSTR(D_LOG_APPLICATION D_OSWATCH " FreeRam %d, rssi %d, last_run %d"),
+  AddLog_PP(LOG_LEVEL_DEBUG, PSTR(D_LOG_APPLICATION D_OSWATCH " FreeRam %d, rssi %d, last_run %d"),
 		 ESP.getFreeHeap(), WifiGetRssiAsQuality(WiFi.RSSI()), last_run);
 #endif  // DEBUG_THEO
   if (last_run >= (OSWATCH_RESET_TIME * 1000)) {

@@ -20,6 +20,10 @@
 #ifndef _SONOFF_POST_H_
 #define _SONOFF_POST_H_
 
+#include "BufferString.h"
+
+extern BufferString log_data_string;
+
 #ifdef __cplusplus
 extern "C" {
 #endif

@@ -96,23 +96,24 @@ void RtcSettingsDump()
   uint8_t *buffer = (uint8_t *) &RtcSettings;
   maxrow = ((sizeof(RTCMEM)+CFG_COLS)/CFG_COLS);
 
+  log_data_string.reset();
   for (row = 0; row < maxrow; row++) {
     idx = row * CFG_COLS;
-    snprintf_P(log_data, sizeof(log_data), PSTR("%04X:"), idx);
+    log_data_string.sprintf_P(FPSTR("%04X:"), (int)idx);
     for (col = 0; col < CFG_COLS; col++) {
       if (!(col%4)) {
-        snprintf_P(log_data, sizeof(log_data), PSTR("%s "), log_data);
+        log_data_string += FPSTR("%s ");
       }
-      snprintf_P(log_data, sizeof(log_data), PSTR("%s %02X"), log_data, buffer[idx + col]);
+      log_data_string.sprintf_P(FPSTR(" %02X"), buffer[idx + col]);
     }
-    snprintf_P(log_data, sizeof(log_data), PSTR("%s |"), log_data);
+    log_data_string += FPSTR(" |");
     for (col = 0; col < CFG_COLS; col++) {
 //      if (!(col%4)) {
 //        snprintf_P(log_data, sizeof(log_data), PSTR("%s "), log_data);
 //      }
-      snprintf_P(log_data, sizeof(log_data), PSTR("%s%c"), log_data, ((buffer[idx + col] > 0x20) && (buffer[idx + col] < 0x7F)) ? (char)buffer[idx + col] : ' ');
+      log_data_string += ((buffer[idx + col] > 0x20) && (buffer[idx + col] < 0x7F)) ? (char)buffer[idx + col] : ' ';
     }
-    snprintf_P(log_data, sizeof(log_data), PSTR("%s|"), log_data);
+    log_data_string += '|';
     AddLog(LOG_LEVEL_INFO);
   }
 }
@@ -227,9 +228,8 @@ void SettingsSave(byte rotate)
         delay(1);
       }
     }
-    snprintf_P(log_data, sizeof(log_data), PSTR(D_LOG_CONFIG D_SAVED_TO_FLASH_AT " %X, " D_COUNT " %d, " D_BYTES " %d"),
-       settings_location, Settings.save_flag, sizeof(SYSCFG));
-    AddLog(LOG_LEVEL_DEBUG);
+    AddLog_PP(LOG_LEVEL_DEBUG, PSTR(D_LOG_CONFIG D_SAVED_TO_FLASH_AT " %X, " D_COUNT " %d, " D_BYTES " %d"),
+		   	  settings_location, Settings.save_flag, sizeof(SYSCFG));
     settings_hash = GetSettingsHash();
   }
 #endif  // BE_MINIMAL
@@ -253,17 +253,13 @@ void SettingsLoad()
     spi_flash_read((settings_location -1) * SPI_FLASH_SEC_SIZE, (uint32*)&_SettingsH, sizeof(SYSCFGH));
     interrupts();
 
-//  snprintf_P(log_data, sizeof(log_data), PSTR("Cnfg: Check at %X with count %d and holder %X"), settings_location -1, _SettingsH.save_flag, _SettingsH.cfg_holder);
-//  AddLog(LOG_LEVEL_DEBUG);
-
     if (((Settings.version > 0x05000200) && Settings.flag.stop_flash_rotate) || (Settings.cfg_holder != _SettingsH.cfg_holder) || (Settings.save_flag > _SettingsH.save_flag)) {
       break;
     }
     delay(1);
   }
-  snprintf_P(log_data, sizeof(log_data), PSTR(D_LOG_CONFIG D_LOADED_FROM_FLASH_AT " %X, " D_COUNT " %d"),
-    settings_location, Settings.save_flag);
-  AddLog(LOG_LEVEL_DEBUG);
+  AddLog_PP(LOG_LEVEL_DEBUG, PSTR(D_LOG_CONFIG D_LOADED_FROM_FLASH_AT " %X, " D_COUNT " %d"),
+			settings_location, Settings.save_flag);
   if (Settings.cfg_holder != CFG_HOLDER) {
     // Auto upgrade
     noInterrupts();
@@ -290,8 +286,8 @@ void SettingsErase()
   uint32_t _sectorEnd = ESP.getFlashChipRealSize() / SPI_FLASH_SEC_SIZE;
   boolean _serialoutput = (LOG_LEVEL_DEBUG_MORE <= seriallog_level);
 
-  snprintf_P(log_data, sizeof(log_data), PSTR(D_LOG_APPLICATION D_ERASE " %d " D_UNIT_SECTORS), _sectorEnd - _sectorStart);
-  AddLog(LOG_LEVEL_DEBUG);
+  AddLog_PP(LOG_LEVEL_DEBUG, PSTR(D_LOG_APPLICATION D_ERASE " %d " D_UNIT_SECTORS),
+			_sectorEnd - _sectorStart);
 
   for (uint32_t _sector = _sectorStart; _sector < _sectorEnd; _sector++) {
     noInterrupts();
@@ -327,9 +323,6 @@ void SettingsDump(char* parms)
   uint16_t srow = strtol(parms, &p, 16) / CFG_COLS;
   uint16_t mrow = strtol(p, &p, 10);
 
-//  snprintf_P(log_data, sizeof(log_data), PSTR("Cnfg: Parms %s, Start row %d, rows %d"), parms, srow, mrow);
-//  AddLog(LOG_LEVEL_DEBUG);
-
   if (0 == mrow) {  // Default only 8 lines
     mrow = 8;
   }
@@ -340,23 +333,25 @@ void SettingsDump(char* parms)
     maxrow = srow + mrow;
   }
 
+  log_data_string.reset();
+
   for (row = srow; row < maxrow; row++) {
     idx = row * CFG_COLS;
-    snprintf_P(log_data, sizeof(log_data), PSTR("%04X:"), idx);
+    log_data_string.sprintf_P(FPSTR("%04X:"), (int)idx);
     for (col = 0; col < CFG_COLS; col++) {
       if (!(col%4)) {
-        snprintf_P(log_data, sizeof(log_data), PSTR("%s "), log_data);
+		log_data_string += ' ';
       }
-      snprintf_P(log_data, sizeof(log_data), PSTR("%s %02X"), log_data, buffer[idx + col]);
+      log_data_string.sprintf_P(FPSTR(" %02X"), buffer[idx + col]);
     }
-    snprintf_P(log_data, sizeof(log_data), PSTR("%s |"), log_data);
+    log_data_string += FPSTR(" |");
     for (col = 0; col < CFG_COLS; col++) {
 //      if (!(col%4)) {
-//        snprintf_P(log_data, sizeof(log_data), PSTR("%s "), log_data);
+//        log_data_string += ' ';
 //      }
-      snprintf_P(log_data, sizeof(log_data), PSTR("%s%c"), log_data, ((buffer[idx + col] > 0x20) && (buffer[idx + col] < 0x7F)) ? (char)buffer[idx + col] : ' ');
+      log_data_string += ((buffer[idx + col] > 0x20) && (buffer[idx + col] < 0x7F)) ? (char)buffer[idx + col] : ' ';
     }
-    snprintf_P(log_data, sizeof(log_data), PSTR("%s|"), log_data);
+	log_data_string += '|';
     AddLog(LOG_LEVEL_INFO);
     delay(1);
   }
