@@ -20,7 +20,7 @@
 IPAddress syslog_host_addr;  // Syslog host IP address
 unsigned long syslog_host_refresh = 0;
 
-static char log_data_format[TOPSZ + MESSZ];        // Logging format
+static char helper_buffer[TOPSZ + MESSZ];        // Logging format
 static char log_data[TOPSZ + MESSZ];               // Logging
 BufferString log_data_string(log_data, sizeof(log_data));
 
@@ -1329,7 +1329,7 @@ void Syslog()
     syslog_host_refresh = millis();
   }
   if (PortUdp.beginPacket(syslog_host_addr, Settings.syslog_port)) {
-	BufferString	syslog_preamble(log_data_format, sizeof(log_data_format));
+	BufferString	syslog_preamble(helper_buffer, sizeof(helper_buffer));
 
 	syslog_preamble = my_hostname;
 	syslog_preamble += FPSTR(" ESP-");
@@ -1359,16 +1359,26 @@ bool CheckLogLevel(byte loglevel)
 
 void AddLog(byte loglevel)
 {
-  char mxtime[9];  // 13:45:21
+  BufferString mxtime(helper_buffer, sizeof(helper_buffer));
+	
+  if (loglevel <= seriallog_level
+#ifdef USE_WEBSERVER
+	  || (Settings.webserver && (loglevel <= Settings.weblog_level))
+#endif
+	 )
+  {
+	// actual print only if it's needed
+	mxtime.sprintf_P(FPSTR("%02d" D_HOUR_MINUTE_SEPARATOR "%02d" D_MINUTE_SECOND_SEPARATOR "%02d"),
+					 RtcTime.hour, RtcTime.minute, RtcTime.second);
+  }
 
-  snprintf_P(mxtime, sizeof(mxtime), PSTR("%02d" D_HOUR_MINUTE_SEPARATOR "%02d" D_MINUTE_SECOND_SEPARATOR "%02d"), RtcTime.hour, RtcTime.minute, RtcTime.second);
 
   if (loglevel <= seriallog_level) {
-    Serial.printf("%s %s\n", mxtime, log_data);
+    Serial.printf("%s %s\n", mxtime.c_str(), log_data_string.c_str());
   }
 #ifdef USE_WEBSERVER
   if (Settings.webserver && (loglevel <= Settings.weblog_level)) {
-    web_log[web_log_index] = String(mxtime) + " " + String(log_data);
+    web_log[web_log_index] = String(mxtime.c_str()) + " " + String(log_data_string.c_str());
     web_log_index++;
     if (web_log_index > MAX_LOG_LINES -1) {
       web_log_index = 0;
@@ -1405,14 +1415,14 @@ void AddLog_PP(byte loglevel, const char *formatP, ...)
 	if (CheckLogLevel(loglevel))
 		return;
 
-	BufferString f(log_data_format, sizeof(log_data_format));
+	BufferString format(helper_buffer, sizeof(helper_buffer));
 	va_list	arglist;
 
 	log_data_string.reset();
-	f = FPSTR(formatP);
+	format = FPSTR(formatP);
 
 	va_start(arglist, formatP);
-	log_data_string.vsprintf(f.c_str(), arglist);
+	log_data_string.vsprintf(format.c_str(), arglist);
 	va_end(arglist);
 
 	AddLog(loglevel);
