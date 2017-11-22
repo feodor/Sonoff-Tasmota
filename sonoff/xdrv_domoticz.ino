@@ -240,9 +240,9 @@ boolean DomoticzCommand(const char *type, uint16_t index, char *dataBuf, uint16_
 boolean DomoticzButton(byte key, byte device, byte state, byte svalflg)
 {
   if ((Settings.domoticz_key_idx[device -1] || Settings.domoticz_switch_idx[device -1]) && (svalflg)) {
-    snprintf_P(mqtt_data, sizeof(mqtt_data), PSTR("{\"command\":\"switchlight\",\"idx\":%d,\"switchcmd\":\"%s\"}"),
-      (key) ? Settings.domoticz_switch_idx[device -1] : Settings.domoticz_key_idx[device -1], (state) ? (2 == state) ? "Toggle" : "On" : "Off");
-    MqttPublish(domoticz_in_topic);
+    MqttPublish(domoticz_in_topic, false, PSTR("{\"command\":\"switchlight\",\"idx\":%d,\"switchcmd\":\"%s\"}"),
+				(key) ? Settings.domoticz_switch_idx[device -1] : Settings.domoticz_key_idx[device -1],
+				(state) ? (2 == state) ? "Toggle" : "On" : "Off");
     return 1;
   } else {
     return 0;

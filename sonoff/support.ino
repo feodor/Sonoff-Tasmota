@@ -20,7 +20,6 @@
 IPAddress syslog_host_addr;  // Syslog host IP address
 unsigned long syslog_host_refresh = 0;
 
-static char helper_buffer[TOPSZ + MESSZ];        // Logging format
 static char log_data[TOPSZ + MESSZ];               // Logging
 BufferString log_data_string(log_data, sizeof(log_data));
 
@@ -347,14 +346,13 @@ bool NewerVersion(char* version_str)
 
 char* GetPowerDevice(char* dest, uint8_t idx, size_t size, uint8_t option)
 {
-  char sidx[8];
+  BufferString d(dest, size);
 
-  strncpy_P(dest, S_RSLT_POWER, size);
-  if ((devices_present + option) > 1) {
-    snprintf_P(sidx, sizeof(sidx), PSTR("%d"), idx);
-    strncat(dest, sidx, size);
-  }
-  return dest;
+  d = FPSTR(S_RSLT_POWER);
+  if ((devices_present + option) > 1)
+	d += (unsigned long)idx;
+
+  return dest; // the same as d.c_str() but non-const
 }
 
 char* GetPowerDevice(char* dest, uint8_t idx, size_t size)

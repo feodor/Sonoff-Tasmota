@@ -191,8 +191,11 @@ char my_hostname[33];                       // Composed Wifi hostname
 char mqtt_client[33];                        // Composed MQTT Clientname
 char serial_in_buffer[INPUT_BUFFER_SIZE + 2]; // Receive buffer
 char mqtt_data[MESSZ];                      // MQTT publish buffer
+BufferString	mqtt_msg(mqtt_data, sizeof(mqtt_data));
 String web_log[MAX_LOG_LINES];              // Web log buffer
 String backlog[MAX_BACKLOG];                // Command backlog
+
+char helper_buffer[TOPSZ + MESSZ];        // helper buffer for various usage, ie format string for sprintf_P
 
 #define MAX_MQTT_ATTEMPT_COUNT	(3)
 static uint8 mqtt_attempt_count = MAX_MQTT_ATTEMPT_COUNT;
@@ -387,6 +390,21 @@ void MqttPublish(const char* topic)
   MqttPublish(topic, false);
 }
 
+void MqttPublish(const char* topic, bool retained, const char *formatP, ...)
+{
+	BufferString format(helper_buffer, sizeof(helper_buffer));
+	va_list	arglist;
+
+	mqtt_msg.reset();
+	format = FPSTR(formatP);
+
+	va_start(arglist, formatP);
+	mqtt_msg.vsprintf(format.c_str(), arglist);
+	va_end(arglist);
+
+	MqttPublish(topic, retained);
+}
+
 void MqttPublishPrefixTopic_P(uint8_t prefix, const char* subtopic, boolean retained)
 {
 /* prefix 0 = cmnd using subtopic
@@ -452,12 +470,10 @@ void MqttPublishPowerState(byte device)
   }
   GetPowerDevice(scommand, device, sizeof(scommand));
   stopic = GetTopic_P(1, Settings.mqtt_topic, (Settings.flag.mqtt_response) ? scommand : S_RSLT_RESULT);
-  snprintf_P(mqtt_data, sizeof(mqtt_data), PSTR("{\"%s\":\"%s\"}"), scommand, GetStateText(bitRead(power, device -1)));
-  MqttPublish(stopic);
+  MqttPublish(stopic, false, PSTR("{\"%s\":\"%s\"}"), scommand, GetStateText(bitRead(power, device -1)));
 
   stopic = GetTopic_P(1, Settings.mqtt_topic, scommand);
-  snprintf_P(mqtt_data, sizeof(mqtt_data), GetStateText(bitRead(power, device -1)));
-  MqttPublish(stopic, Settings.flag.mqtt_power_retain);
+  MqttPublish(stopic, Settings.flag.mqtt_power_retain, GetStateText(bitRead(power, device -1)));
 }
 
 void MqttPublishPowerBlinkState(byte device)
@@ -589,8 +605,7 @@ void MqttReconnect()
   if (MqttClient.connect(mqtt_client, mqtt_user, mqtt_pwd, stopic, 1, true, mqtt_data)) {
     AddLog_P(LOG_LEVEL_INFO, S_LOG_MQTT, PSTR(D_CONNECTED));
     mqtt_retry_counter = 0;
-    snprintf_P(mqtt_data, sizeof(mqtt_data), PSTR(D_ONLINE));
-    MqttPublish(stopic, true);
+    MqttPublish(stopic, true, PSTR(D_ONLINE));
     MqttConnected();
 	mqtt_attempt_count = MAX_MQTT_ATTEMPT_COUNT;
   } else {
@@ -783,9 +798,8 @@ boolean MqttCommand(boolean grpflg, char *type, uint16_t index, char *dataBuf, u
     if ((payload >= 0) && (payload <= 1)) {
       if (!payload) {
         for(i = 1; i <= devices_present; i++) {  // Clear MQTT retain in broker
-          mqtt_data[0] = '\0';
           MqttPublish(GetTopic_P(1, Settings.mqtt_topic, GetPowerDevice(scommand, i, sizeof(scommand))),
-					  Settings.flag.mqtt_power_retain);
+					  Settings.flag.mqtt_power_retain, "");
         }
       }
       Settings.flag.mqtt_power_retain = payload;
