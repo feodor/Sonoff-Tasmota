@@ -1334,9 +1334,7 @@ void Syslog()
 	syslog_preamble = my_hostname;
 	syslog_preamble += FPSTR(" ESP-");
 	PortUdp.write(syslog_preamble.c_str(), syslog_preamble.length());
-	PortUdp.write(log_data);
-	//XXX until log_data is not static here 
-    //PortUdp.write(log_data_string.c_str(), log_data_string.length());
+    PortUdp.write(log_data_string.c_str(), log_data_string.length());
     PortUdp.endPacket();
   } else {
     syslog_level = 0; // prevent infinite loop
@@ -1346,6 +1344,7 @@ void Syslog()
   }
 }
 
+//returns true if log message will NOT be printed
 bool CheckLogLevel(byte loglevel)
 {
 	return (
