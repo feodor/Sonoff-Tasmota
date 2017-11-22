@@ -347,8 +347,7 @@ void SetLedPower(uint8_t state)
 
 void MqttSubscribe(const char *topic)
 {
-  snprintf_P(log_data, sizeof(log_data), PSTR(D_LOG_MQTT D_SUBSCRIBE_TO " %s"), topic);
-  AddLog(LOG_LEVEL_DEBUG);
+  AddLog_PP(LOG_LEVEL_DEBUG, PSTR(D_LOG_MQTT D_SUBSCRIBE_TO " %s"), topic);
   MqttClient.subscribe(topic);
   MqttClient.loop();  // Solve LmacRxBlk:1 messages
 }
@@ -357,16 +356,15 @@ void MqttPublishDirect(const char* topic, boolean retained)
 {
   if (Settings.flag.mqtt_enabled) {
     if (MqttClient.publish(topic, mqtt_data, retained)) {
-      snprintf_P(log_data, sizeof(log_data), PSTR(D_LOG_MQTT "%s = %s%s"), topic, mqtt_data, (retained) ? " (" D_RETAINED ")" : "");
+      AddLog_PP(LOG_LEVEL_INFO, PSTR(D_LOG_MQTT "%s = %s%s"), topic, mqtt_data, (retained) ? " (" D_RETAINED ")" : "");
 //      MqttClient.loop();  // Do not use here! Will block previous publishes
     } else  {
-      snprintf_P(log_data, sizeof(log_data), PSTR(D_LOG_RESULT "%s = %s"), topic, mqtt_data);
+      AddLog_PP(LOG_LEVEL_INFO, PSTR(D_LOG_RESULT "%s = %s"), topic, mqtt_data);
     }
   } else {
-    snprintf_P(log_data, sizeof(log_data), PSTR(D_LOG_RESULT "%s = %s"), strrchr(topic,'/')+1, mqtt_data);
+    AddLog_PP(LOG_LEVEL_INFO, PSTR(D_LOG_RESULT "%s = %s"), strrchr(topic,'/')+1, mqtt_data);
   }
 
-  AddLog(LOG_LEVEL_INFO);
   if (Settings.ledstate &0x04) {
     blinks++;
   }
@@ -428,10 +426,7 @@ void MqttPublishSimple_P(const char* subtopic, const char *v)
 		yield();
 
 		if (!MqttClient.publish(topic, v, false))
-		{
-			snprintf_P(log_data, sizeof(log_data), PSTR(D_LOG_RESULT " failed %s = %s"), topic, v);
-			AddLog(LOG_LEVEL_INFO);
-		}
+			AddLog_PP(LOG_LEVEL_INFO, PSTR(D_LOG_RESULT " failed %s = %s"), topic, v);
 	}
 }
 
@@ -540,10 +535,6 @@ void MqttReconnect()
     return;
   }
 
-//    snprintf_P(log_data, sizeof(log_data), PSTR("MqttReconnect %d %d"),
-//			   mqtt_connection_flag, mqtt_retry_counter);
-//   AddLog(LOG_LEVEL_INFO);
-
 #ifdef USE_EMULATION
   UdpDisconnect();
 #endif  // USE_EMULATION
@@ -551,9 +542,8 @@ void MqttReconnect()
 #ifdef USE_MQTT_TLS
     AddLog_P(LOG_LEVEL_INFO, S_LOG_MQTT, PSTR(D_FINGERPRINT));
     if (!EspClient.connect(Settings.mqtt_host, Settings.mqtt_port)) {
-      snprintf_P(log_data, sizeof(log_data), PSTR(D_LOG_MQTT D_TLS_CONNECT_FAILED_TO " %s:%d. " D_RETRY_IN " %d " D_UNIT_SECOND),
-        Settings.mqtt_host, Settings.mqtt_port, mqtt_retry_counter);
-      AddLog(LOG_LEVEL_DEBUG);
+      AddLog_PP(LOG_LEVEL_DEBUG, PSTR(D_LOG_MQTT D_TLS_CONNECT_FAILED_TO " %s:%d. " D_RETRY_IN " %d " D_UNIT_SECOND),
+				Settings.mqtt_host, Settings.mqtt_port, mqtt_retry_counter);
       return;
     }
     if (EspClient.verify(Settings.mqtt_fingerprint, Settings.mqtt_host)) {
@@ -584,7 +574,7 @@ void MqttReconnect()
 
   stopic = GetTopic_P(2, Settings.mqtt_topic, S_LWT);
   snprintf_P(mqtt_data, sizeof(mqtt_data), PSTR(D_OFFLINE " %d"), MqttClient.state());
-  AddLog(LOG_LEVEL_INFO);
+  AddLog_PP(LOG_LEVEL_INFO, PSTR(D_OFFLINE " %d"), MqttClient.state());
  
   MqttClient.disconnect();
   MqttClient.setServer(Settings.mqtt_host, Settings.mqtt_port);
@@ -605,9 +595,9 @@ void MqttReconnect()
     MqttConnected();
 	mqtt_attempt_count = MAX_MQTT_ATTEMPT_COUNT;
   } else {
-    snprintf_P(log_data, sizeof(log_data), PSTR(D_LOG_MQTT D_CONNECT_FAILED_TO " %s:%d, rc %d. " D_RETRY_IN " %d " D_UNIT_SECOND),
-      Settings.mqtt_host, Settings.mqtt_port, MqttClient.state(), mqtt_retry_counter);  //status codes are documented here http://pubsubclient.knolleary.net/api.html#state
-    AddLog(LOG_LEVEL_INFO);
+	//status codes are documented here http://pubsubclient.knolleary.net/api.html#state
+    AddLog_PP(LOG_LEVEL_INFO, PSTR(D_LOG_MQTT D_CONNECT_FAILED_TO " %s:%d, rc %d. " D_RETRY_IN " %d " D_UNIT_SECOND),
+			  Settings.mqtt_host, Settings.mqtt_port, MqttClient.state(), mqtt_retry_counter);
 	if (mqtt_attempt_count == 0)
 	{
 		RtcSettings.oswatch_blocked_loop = 3;
@@ -870,10 +860,8 @@ void MqttDataCallback(char* topic, byte* data, unsigned int data_len)
   memcpy(dataBuf, data +i, sizeof(dataBuf));
   dataBuf[sizeof(dataBuf)-1] = 0;
 
-  snprintf_P(log_data, sizeof(log_data), PSTR(D_LOG_RESULT D_RECEIVED_TOPIC " %s, " D_DATA_SIZE " %d, " D_DATA " %s"),
-    topicBuf, data_len, dataBuf);
-  AddLog(LOG_LEVEL_DEBUG_MORE);
-//  if (LOG_LEVEL_DEBUG_MORE <= seriallog_level) Serial.println(dataBuf);
+  AddLog_PP(LOG_LEVEL_DEBUG_MORE,  PSTR(D_LOG_RESULT D_RECEIVED_TOPIC " %s, " D_DATA_SIZE " %d, " D_DATA " %s"),
+			topicBuf, data_len, dataBuf);
 
 #ifdef USE_DOMOTICZ
   if (Settings.flag.mqtt_enabled) {
@@ -901,9 +889,8 @@ void MqttDataCallback(char* topic, byte* data, unsigned int data_len)
     type[i] = '\0';
   }
 
-  snprintf_P(log_data, sizeof(log_data), PSTR(D_LOG_RESULT D_GROUP " %d, " D_INDEX " %d, " D_COMMAND " %s, " D_DATA " %s"),
-    grpflg, index, type, dataBuf);
-  AddLog(LOG_LEVEL_DEBUG);
+  AddLog_PP(LOG_LEVEL_DEBUG, PSTR(D_LOG_RESULT D_GROUP " %d, " D_INDEX " %d, " D_COMMAND " %s, " D_DATA " %s"),
+			grpflg, index, type, dataBuf);
 
   if (type != NULL) {
     snprintf_P(mqtt_data, sizeof(mqtt_data), PSTR("{\"" D_COMMAND "\":\"" D_ERROR "\"}"));
@@ -938,9 +925,6 @@ void MqttDataCallback(char* topic, byte* data, unsigned int data_len)
     if (GetCommandCode(command, sizeof(command), dataBuf, kOptionBlinkOff) >= 0) {
       payload = 4;
     }
-
-//    snprintf_P(log_data, sizeof(log_data), PSTR("RSLT: Payload %d, Payload16 %d"), payload, payload16);
-//    AddLog(LOG_LEVEL_DEBUG);
 
     int command_code = GetCommandCode(command, sizeof(command), type, kTasmotaCommands);
     if (CMND_BACKLOG == command_code) {
@@ -2075,8 +2059,7 @@ void ButtonHandler()
     if (!i && ((SONOFF_DUAL == Settings.module) || (CH4 == Settings.module))) {
       button_present = 1;
       if (dual_button_code) {
-        snprintf_P(log_data, sizeof(log_data), PSTR(D_LOG_APPLICATION D_BUTTON " " D_CODE " %04X"), dual_button_code);
-        AddLog(LOG_LEVEL_DEBUG);
+        AddLog_PP(LOG_LEVEL_DEBUG, PSTR(D_LOG_APPLICATION D_BUTTON " " D_CODE " %04X"), dual_button_code);
         button = PRESSED;
         if (0xF500 == dual_button_code) {                     // Button hold
           holdbutton[i] = (Settings.param[P_HOLD_TIME] * (STATES / 10)) -1;
@@ -2097,14 +2080,12 @@ void ButtonHandler()
         }
         boolean button_pressed = false;
         if ((PRESSED == button) && (NOT_PRESSED == lastbutton[i])) {
-          snprintf_P(log_data, sizeof(log_data), PSTR(D_LOG_APPLICATION D_BUTTON " %d " D_LEVEL_10), i +1);
-          AddLog(LOG_LEVEL_DEBUG);
+          AddLog_PP(LOG_LEVEL_DEBUG, PSTR(D_LOG_APPLICATION D_BUTTON " %d " D_LEVEL_10), i +1);
           holdbutton[i] = STATES;
           button_pressed = true;
         }
         if ((NOT_PRESSED == button) && (PRESSED == lastbutton[i])) {
-          snprintf_P(log_data, sizeof(log_data), PSTR(D_LOG_APPLICATION D_BUTTON " %d " D_LEVEL_01), i +1);
-          AddLog(LOG_LEVEL_DEBUG);
+          AddLog_PP(LOG_LEVEL_DEBUG, PSTR(D_LOG_APPLICATION D_BUTTON " %d " D_LEVEL_01), i +1);
           if (!holdbutton[i]) {                           // Do not allow within 1 second
             button_pressed = true;
           }
@@ -2117,15 +2098,14 @@ void ButtonHandler()
       } else {
         if ((PRESSED == button) && (NOT_PRESSED == lastbutton[i])) {
           if (Settings.flag.button_single) {                // Allow only single button press for immediate action
-            snprintf_P(log_data, sizeof(log_data), PSTR(D_LOG_APPLICATION D_BUTTON " %d " D_IMMEDIATE), i +1);
-            AddLog(LOG_LEVEL_DEBUG);
+            AddLog_PP(LOG_LEVEL_DEBUG, PSTR(D_LOG_APPLICATION D_BUTTON " %d " D_IMMEDIATE), i +1);
             if (!send_button_power(0, i +1, 2)) {         // Execute Toggle command via MQTT if ButtonTopic is set
               ExecuteCommandPower(i +1, 2);                     // Execute Toggle command internally
             }
           } else {
             multipress[i] = (multiwindow[i]) ? multipress[i] +1 : 1;
-            snprintf_P(log_data, sizeof(log_data), PSTR(D_LOG_APPLICATION D_BUTTON " %d " D_MULTI_PRESS " %d"), i +1, multipress[i]);
-            AddLog(LOG_LEVEL_DEBUG);
+            AddLog_PP(LOG_LEVEL_DEBUG, PSTR(D_LOG_APPLICATION D_BUTTON " %d " D_MULTI_PRESS " %d"),
+					  i +1, multipress[i]);
             multiwindow[i] = STATES /2;                   // 0.5 second multi press window
           }
           blinks = 201;
@@ -2419,8 +2399,6 @@ void StateLoop()
         ota_result = 0;
         ota_retry_counter--;
         if (ota_retry_counter) {
-//          snprintf_P(log_data, sizeof(log_data), PSTR("OTA: Attempt %d"), OTA_ATTEMPTS - ota_retry_counter);
-//          AddLog(LOG_LEVEL_INFO);
           ota_result = (HTTP_UPDATE_FAILED != ESPhttpUpdate.update(Settings.ota_url));
           if (!ota_result) {
             ota_state_flag = 2;
@@ -2586,8 +2564,7 @@ void SerialInput()
     else if (serial_in_byte == '\n') {
       serial_in_buffer[serial_in_byte_counter] = 0;  // serial data completed
       seriallog_level = (Settings.seriallog_level < LOG_LEVEL_INFO) ? LOG_LEVEL_INFO : Settings.seriallog_level;
-      snprintf_P(log_data, sizeof(log_data), PSTR(D_LOG_COMMAND "%s"), serial_in_buffer);
-      AddLog(LOG_LEVEL_INFO);
+      AddLog_PP(LOG_LEVEL_INFO, PSTR(D_LOG_COMMAND "%s"), serial_in_buffer);
       ExecuteCommand(serial_in_buffer);
       serial_in_byte_counter = 0;
       Serial.flush();
@@ -2623,9 +2600,6 @@ void GpioInit()
   }
   for (byte i = 0; i < MAX_GPIO_PIN; i++) {
     mpin = my_module.gp.io[i];
-
-//  snprintf_P(log_data, sizeof(log_data), PSTR("DBG: gpio pin %d, mpin %d"), i, mpin);
-//  AddLog(LOG_LEVEL_DEBUG);
 
     if (mpin) {
       if ((mpin >= GPIO_REL1_INV) && (mpin < (GPIO_REL1_INV + MAX_RELAYS))) {
@@ -2814,15 +2788,13 @@ void setup()
   sleep = Settings.sleep;
 
   Settings.bootcount++;
-  snprintf_P(log_data, sizeof(log_data), PSTR(D_LOG_APPLICATION D_BOOT_COUNT " %d"), Settings.bootcount);
-  AddLog(LOG_LEVEL_DEBUG);
+  AddLog_PP(LOG_LEVEL_DEBUG, PSTR(D_LOG_APPLICATION D_BOOT_COUNT " %d"), Settings.bootcount);
 
   GpioInit();
 
   if (Serial.baudRate() != baudrate) {
     if (seriallog_level) {
-      snprintf_P(log_data, sizeof(log_data), PSTR(D_LOG_APPLICATION D_SET_BAUDRATE_TO " %d"), baudrate);
-      AddLog(LOG_LEVEL_INFO);
+      AddLog_PP(LOG_LEVEL_INFO, PSTR(D_LOG_APPLICATION D_SET_BAUDRATE_TO " %d"), baudrate);
     }
     delay(100);
     Serial.flush();
@@ -2896,9 +2868,8 @@ void setup()
 
   RtcInit();
 
-  snprintf_P(log_data, sizeof(log_data), PSTR(D_PROJECT " %s %s (" D_CMND_TOPIC " %s, " D_FALLBACK " %s, " D_CMND_GROUPTOPIC " %s) " D_VERSION " %s"),
-    PROJECT, Settings.friendlyname[0], Settings.mqtt_topic, mqtt_client, Settings.mqtt_grptopic, version);
-  AddLog(LOG_LEVEL_INFO);
+  AddLog_PP(LOG_LEVEL_INFO, PSTR(D_PROJECT " %s %s (" D_CMND_TOPIC " %s, " D_FALLBACK " %s, " D_CMND_GROUPTOPIC " %s) " D_VERSION " %s"),
+			PROJECT, Settings.friendlyname[0], Settings.mqtt_topic, mqtt_client, Settings.mqtt_grptopic, version);
 }
 
 void loop()
