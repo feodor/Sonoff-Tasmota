@@ -62,6 +62,7 @@ class BufferString {
 		// marked as invalid ("if (s)" will be false).
 		BufferString & operator =(const BufferString &rhs);
 		BufferString & operator =(const char *cstr);
+		BufferString & operator =(const char c);
 		BufferString & operator = (const __FlashStringHelper *str);
 
 		// concatenate (works w/ built-in types)

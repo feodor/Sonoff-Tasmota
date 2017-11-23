@@ -101,6 +101,18 @@ BufferString & BufferString::operator = (const __FlashStringHelper *pstr)
 	return *this;
 }
 
+BufferString & BufferString::operator =(const char c) {
+	if (capacity > 1)
+	{
+		len = 1;
+		buffer[0] = c;
+		buffer[1] = '\0';
+	} else
+		invalidate();
+
+	return *this;
+}
+
 // /*********************************************/
 // /*  concat								   */
 // /*********************************************/
