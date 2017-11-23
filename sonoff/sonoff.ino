@@ -1813,7 +1813,7 @@ void PublishStatus(uint8_t payload)
 
   if (hlw_flg) {
     if ((0 == payload) || (8 == payload)) {
-      HlwMqttStatus();
+      HlwMqttStatus(mqtt_msg);
       MqttPublishPrefixTopic_P(option, PSTR(D_CMND_STATUS "8"));
     }
 
@@ -2050,7 +2050,7 @@ void PerformEverySecond()
   }
 
   if (hlw_flg) {
-    HlwMarginCheck();
+    HlwMarginCheck(mqtt_msg);
   }
 
 

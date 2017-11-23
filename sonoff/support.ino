@@ -1264,7 +1264,7 @@ int GetCommandCode(char* destination, size_t destination_size, const char* needl
  * ADC support
 \*********************************************************************************************/
 
-void AdcShow(boolean json)
+void AdcShow(boolean json, BufferString *msg)
 {
   uint16_t analog = 0;
   for (byte i = 0; i < 32; i++) {
@@ -1274,10 +1274,10 @@ void AdcShow(boolean json)
   analog >>= 5;
 
   if (json) {
-    snprintf_P(mqtt_data, sizeof(mqtt_data), PSTR("%s, \"" D_ANALOG_INPUT "0\":%d"), mqtt_data, analog);
+    msg->sprintf_P(F(", \"" D_ANALOG_INPUT "0\":%d"), analog);
 #ifdef USE_WEBSERVER
   } else {
-    snprintf_P(mqtt_data, sizeof(mqtt_data), HTTP_SNS_ANALOG, mqtt_data, "", 0, analog);
+    msg->sprintf_P(FPSTR(HTTP_SNS_ANALOG), "", 0, analog);
 #endif  // USE_WEBSERVER
   }
 }
@@ -1288,7 +1288,7 @@ void AdcShow(boolean json)
 
 #define XSNS_02
 
-boolean Xsns02(byte function)
+boolean Xsns02(byte function, void *arg)
 {
   boolean result = false;
 
@@ -1299,11 +1299,11 @@ boolean Xsns02(byte function)
 //      case FUNC_XSNS_PREP:
 //        break;
       case FUNC_XSNS_JSON_APPEND:
-        AdcShow(1);
+        AdcShow(1, arg);
         break;
 #ifdef USE_WEBSERVER
       case FUNC_XSNS_WEB:
-        AdcShow(0);
+        AdcShow(0, arg);
         break;
 #endif  // USE_WEBSERVER
     }
