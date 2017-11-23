@@ -205,7 +205,9 @@ int BufferString::compareTo(const BufferString &s) const {
 }
 
 unsigned char BufferString::equals(const BufferString &s2) const {
-	return (len == s2.len && compareTo(s2) == 0);
+	if (len == s2.len)
+		return (buffer == s2.buffer || compareTo(s2) == 0);
+	return false;
 }
 
 unsigned char BufferString::equals(const char *cstr) const {
