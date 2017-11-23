@@ -808,30 +808,30 @@ void I2cWrite8(uint8_t addr, uint8_t reg, uint8_t val)
   } while (Wire.endTransmission(true) != 0 && x != 0); // end transmission
 }
 
-void I2cScan(char *devs, unsigned int devs_len)
+void I2cScan(BufferString &devs)
 {
   byte error;
   byte address;
   byte any = 0;
   char tstr[10];
 
-  snprintf_P(devs, devs_len, PSTR("{\"" D_CMND_I2CSCAN "\":\"" D_I2CSCAN_DEVICES_FOUND_AT));
+  devs += F("{\"" D_CMND_I2CSCAN "\":\"" D_I2CSCAN_DEVICES_FOUND_AT);
   for (address = 1; address <= 127; address++) {
     Wire.beginTransmission(address);
     error = Wire.endTransmission();
     if (0 == error) {
+	  devs.sprintf_P(F(" 0x%2x"), address);
       snprintf_P(tstr, sizeof(tstr), PSTR(" 0x%2x"), address);
-      strncat(devs, tstr, devs_len);
       any = 1;
     }
     else if (4 == error) {
-      snprintf_P(devs, devs_len, PSTR("{\"" D_CMND_I2CSCAN "\":\"" D_I2CSCAN_UNKNOWN_ERROR_AT " 0x%2x\"}"), address);
+      devs.sprintf_P(F("{\"" D_CMND_I2CSCAN "\":\"" D_I2CSCAN_UNKNOWN_ERROR_AT " 0x%2x\"}"), address);
     }
   }
   if (any) {
-    strncat(devs, "\"}", devs_len);
+	devs += '"'; devs += '}';
   } else {
-    snprintf_P(devs, devs_len, PSTR("{\"" D_CMND_I2CSCAN "\":\"" D_I2CSCAN_NO_DEVICES_FOUND "\"}"));
+    devs = F("{\"" D_CMND_I2CSCAN "\":\"" D_I2CSCAN_NO_DEVICES_FOUND "\"}"));
   }
 }
 
