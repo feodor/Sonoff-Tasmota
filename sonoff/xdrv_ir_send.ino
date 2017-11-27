@@ -101,7 +101,7 @@ void IrReceiveCheck()
       if ((iridx < 0) || (iridx > 14)) {
         iridx = 0;
       }
-      snprintf_P(mqtt_data, sizeof(mqtt_data), PSTR("{\"" D_IRRECEIVED "\":{\"" D_IR_PROTOCOL "\":\"%s\", \"" D_IR_BITS "\":%d, \"" D_IR_DATA "\":\"%X\"}}"),
+      mqtt_msg.sprintf_P(F("{\"" D_IRRECEIVED "\":{\"" D_IR_PROTOCOL "\":\"%s\", \"" D_IR_BITS "\":%d, \"" D_IR_DATA "\":\"%X\"}}"),
         GetTextIndexed(sirtype, sizeof(sirtype), iridx, kIrRemoteProtocols), results.bits, results.value);
       MqttPublishPrefixTopic_P(6, PSTR(D_IRRECEIVED));
 #ifdef USE_DOMOTICZ
@@ -281,6 +281,7 @@ boolean IrSendCommand(char *type, uint16_t index, char *dataBuf, uint16_t data_l
   int HVAC_Temp = 21;
   boolean HVAC_Power = true;
 
+  mqtt_msg.reset();
   for (uint16_t i = 0; i <= sizeof(dataBufUc); i++) {
     dataBufUc[i] = toupper(dataBuf[i]);
   }
@@ -289,10 +290,10 @@ boolean IrSendCommand(char *type, uint16_t index, char *dataBuf, uint16_t data_l
       StaticJsonBuffer<128> jsonBuf;
       JsonObject &ir_json = jsonBuf.parseObject(dataBufUc);
       if (!ir_json.success()) {
-        snprintf_P(mqtt_data, sizeof(mqtt_data), PSTR("{\"" D_CMND_IRSEND "\":\"" D_INVALID_JSON "\"}")); // JSON decode failed
+        mqtt_msg.sprintf_P(F("{\"" D_CMND_IRSEND "\":\"" D_INVALID_JSON "\"}")); // JSON decode failed
       }
       else {
-        snprintf_P(mqtt_data, sizeof(mqtt_data), PSTR("{\"" D_CMND_IRSEND "\":\"" D_DONE "\"}"));
+        mqtt_msg.sprintf_P(F("{\"" D_CMND_IRSEND "\":\"" D_DONE "\"}"));
         protocol = ir_json[D_IR_PROTOCOL];
         bits = ir_json[D_IR_BITS];
         data = ir_json[D_IR_DATA];
@@ -316,7 +317,8 @@ boolean IrSendCommand(char *type, uint16_t index, char *dataBuf, uint16_t data_l
             case PANASONIC:
               irsend->sendPanasonic(bits, data); break;
             default:
-              snprintf_P(mqtt_data, sizeof(mqtt_data), PSTR("{\"" D_CMND_IRSEND "\":\"" D_PROTOCOL_NOT_SUPPORTED "\"}"));
+              mqtt_msg.reset();
+              mqtt_msg.sprintf_P(F("{\"" D_CMND_IRSEND "\":\"" D_PROTOCOL_NOT_SUPPORTED "\"}"));
           }
         }
         else {
@@ -328,7 +330,8 @@ boolean IrSendCommand(char *type, uint16_t index, char *dataBuf, uint16_t data_l
       error = true;
     }
     if (error) {
-      snprintf_P(mqtt_data, sizeof(mqtt_data), PSTR("{\"" D_CMND_IRSEND "\":\"" D_NO " " D_IR_PROTOCOL ", " D_IR_BITS " " D_OR " " D_IR_DATA "\"}"));
+      mqtt_msg.reset();
+      mqtt_msg.sprintf_P(F("{\"" D_CMND_IRSEND "\":\"" D_NO " " D_IR_PROTOCOL ", " D_IR_BITS " " D_OR " " D_IR_DATA "\"}"));
     }
   }
 #ifdef USE_IR_HVAC
@@ -337,10 +340,10 @@ boolean IrSendCommand(char *type, uint16_t index, char *dataBuf, uint16_t data_l
       StaticJsonBuffer<164> jsonBufer;
       JsonObject &root = jsonBufer.parseObject(dataBufUc);
       if (!root.success()) {
-        snprintf_P(mqtt_data, sizeof(mqtt_data), PSTR("{\"" D_CMND_IRHVAC "\":\"" D_INVALID_JSON "\"}")); // JSON decode failed
+        mqtt_msg.sprintf_P(F("{\"" D_CMND_IRHVAC "\":\"" D_INVALID_JSON "\"}")); // JSON decode failed
       }
       else {
-        snprintf_P(mqtt_data, sizeof(mqtt_data), PSTR("{\"" D_CMND_IRHVAC "\":\"" D_DONE "\"}"));
+        mqtt_msg.sprintf_P(F("{\"" D_CMND_IRHVAC "\":\"" D_DONE "\"}"));
         HVAC_Vendor = root[D_IRHVAC_VENDOR];
         HVAC_Power = root[D_IRHVAC_POWER];
         HVAC_Mode = root[D_IRHVAC_MODE];
@@ -362,7 +365,8 @@ boolean IrSendCommand(char *type, uint16_t index, char *dataBuf, uint16_t data_l
       error = true;
     }
     if (error) {
-      snprintf_P(mqtt_data, sizeof(mqtt_data), PSTR("{\"" D_CMND_IRHVAC "\":\"" D_WRONG " " D_IRHVAC_VENDOR ", " D_IRHVAC_MODE " " D_OR " " D_IRHVAC_FANSPEED "\"}"));
+      mqtt_msg.reset();
+      mqtt_msg.sprintf_P(F("{\"" D_CMND_IRHVAC "\":\"" D_WRONG " " D_IRHVAC_VENDOR ", " D_IRHVAC_MODE " " D_OR " " D_IRHVAC_FANSPEED "\"}"));
     }
   }
 #endif // USE_IR_HVAC

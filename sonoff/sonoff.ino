@@ -190,7 +190,7 @@ char version[16];                           // Version string from VERSION defin
 char my_hostname[33];                       // Composed Wifi hostname
 char mqtt_client[33];                        // Composed MQTT Clientname
 char serial_in_buffer[INPUT_BUFFER_SIZE + 2]; // Receive buffer
-char mqtt_data[MESSZ];                      // MQTT publish buffer
+static char mqtt_data[MESSZ];                      // MQTT publish buffer
 BufferString	mqtt_msg(mqtt_data, sizeof(mqtt_data));
 String web_log[MAX_LOG_LINES];              // Web log buffer
 String backlog[MAX_BACKLOG];                // Command backlog
@@ -1924,6 +1924,7 @@ ActThermoControl(float current_temperature)
 
     if (should_poweron != is_power)
 	{
+		mqtt_msg.reset();
         ExecuteCommandPower(device, should_poweron ? 1 : 0);
 
 		if (should_poweron == !Settings.inverted_temperature_control)
@@ -2025,6 +2026,7 @@ void PerformEverySecond()
 #endif
       }
 */
+	  mqtt_msg.reset();
 
 	  XsnsCall(FUNC_XSNS_JSON_APPEND, &current_temperature);
 #ifdef TEMPERATURE_CONTROL

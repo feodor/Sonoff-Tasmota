@@ -87,13 +87,13 @@ void Veml6070Show(boolean json)
     uint16_t uvlevel = Veml6070ReadUv();
 
     if (json) {
-      snprintf_P(mqtt_data, sizeof(mqtt_data), PSTR("%s, \"%s\":{\"" D_UV_LEVEL "\":%d}"), mqtt_data, veml6070_types, uvlevel);
+      mqtt_msg.sprintf_P(F(", \"%s\":{\"" D_UV_LEVEL "\":%d}"), veml6070_types, uvlevel);
 #ifdef USE_DOMOTICZ
       DomoticzSensor(DZ_ILLUMINANCE, uvlevel);
 #endif  // USE_DOMOTICZ
 #ifdef USE_WEBSERVER
     } else {
-      snprintf_P(mqtt_data, sizeof(mqtt_data), HTTP_SNS_ULTRAVIOLET, mqtt_data, uvlevel);
+      mqtt_msg.sprintf_P(FPSTR( HTTP_SNS_ULTRAVIOLET), uvlevel);
 #endif  // USE_WEBSERVER
     }
   }

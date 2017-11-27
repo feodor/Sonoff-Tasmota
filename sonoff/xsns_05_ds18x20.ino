@@ -159,7 +159,9 @@ void Ds18x20Type(uint8_t sensor)
   }
 }
 
-void Ds18x20Show(boolean json, void *arg)
+#define SHOW_JSON	0x01
+#define SHOW_WEB	0x02
+void Ds18x20Show(byte type, void *arg)
 {
   char temperature[10];
   char stemp[10];
@@ -174,26 +176,27 @@ void Ds18x20Show(boolean json, void *arg)
 	  counter++;
 
       Ds18x20Type(i);
-      dtostrfd(t, Settings.flag.temperature_resolution, temperature);
+	  if (type) // SHOW_JSON or SHOW_WEB
+        dtostrfd(t, Settings.flag.temperature_resolution, temperature);
 
-      if (json) {
+      if (type == SHOW_JSON) {
         if (!dsxflg) {
-          snprintf_P(mqtt_data, sizeof(mqtt_data), PSTR("%s, \"DS18x20\":{"), mqtt_data);
+		  mqtt_msg += F(", \"DS18x20\":{");
           stemp[0] = '\0';
         }
         dsxflg++;
-       	snprintf_P(mqtt_data, sizeof(mqtt_data), PSTR("%s%s\"DS%d\":{\"" D_TYPE "\":\"%s\", \"" D_ADDRESS "\":\"%s\", \"" D_TEMPERATURE "\":%s}"),
-         		   mqtt_data, stemp, i +1, ds18x20_types, Ds18x20Addresses(i).c_str(), temperature);
-        strcpy(stemp, ", ");
+		mqtt_msg.sprintf_P(F("%s\"DS%d\":{\"" D_TYPE "\":\"%s\", \"" D_ADDRESS "\":\"%s\", \"" D_TEMPERATURE "\":%s}"),
+						   stemp, i +1, ds18x20_types, Ds18x20Addresses(i).c_str(), temperature);
+		mqtt_msg += F(", ");
 #ifdef USE_DOMOTICZ
         if (1 == dsxflg) {
           DomoticzSensor(DZ_TEMP, temperature);
         }
 #endif  // USE_DOMOTICZ
 #ifdef USE_WEBSERVER
-      } else {
+      } else if (type == SHOW_WEB) {
         snprintf_P(stemp, sizeof(stemp), PSTR("%s-%d"), ds18x20_types, i +1);
-        snprintf_P(mqtt_data, sizeof(mqtt_data), HTTP_SNS_TEMP, mqtt_data, stemp, temperature, TempUnit());
+        mqtt_msg.sprintf_P(FPSTR(HTTP_SNS_TEMP), stemp, temperature, TempUnit());
 #endif  // USE_WEBSERVER
       }
     }
@@ -207,12 +210,12 @@ void Ds18x20Show(boolean json, void *arg)
 		*(float*)arg = NAN;
   }
 
-  if (json) {
+  if (type == SHOW_JSON) {
     if (dsxflg) {
-      snprintf_P(mqtt_data, sizeof(mqtt_data), PSTR("%s}"), mqtt_data);
+		mqtt_msg += '}';
     }
 #ifdef USE_WEBSERVER
-  } else {
+  } else if (type == SHOW_WEB) {
     Ds18x20Search();      // Check for changes in sensors number
     Ds18x20Convert();     // Start Conversion, takes up to one second
 #endif  // USE_WEBSERVER
@@ -238,12 +241,15 @@ boolean Xsns05(byte function, void *arg)
         Ds18x20Search();      // Check for changes in sensors number
         Ds18x20Convert();     // Start Conversion, takes up to one second
         break;
+      case FUNC_XSNS_READ:
+        Ds18x20Show(0, arg);
+        break;
       case FUNC_XSNS_JSON_APPEND:
-        Ds18x20Show(1, arg);
+        Ds18x20Show(SHOW_JSON, arg);
         break;
 #ifdef USE_WEBSERVER
       case FUNC_XSNS_WEB:
-        Ds18x20Show(0, arg);
+        Ds18x20Show(SHOW_WEB, arg);
         break;
 #endif  // USE_WEBSERVER
     }

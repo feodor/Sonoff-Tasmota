@@ -196,14 +196,14 @@ void ShtShow(boolean json)
       dtostrfd(h, Settings.flag.humidity_resolution, humidity);
 
       if (json) {
-        snprintf_P(mqtt_data, sizeof(mqtt_data), JSON_SNS_TEMPHUM, mqtt_data, "SHT1X", temperature, humidity);
+        mqtt_msg.sprintf_P(FPSTR( JSON_SNS_TEMPHUM), "SHT1X", temperature, humidity);
 #ifdef USE_DOMOTICZ
         DomoticzTempHumSensor(temperature, humidity);
 #endif  // USE_DOMOTICZ
 #ifdef USE_WEBSERVER
       } else {
-        snprintf_P(mqtt_data, sizeof(mqtt_data), HTTP_SNS_TEMP, mqtt_data, "SHT1X", temperature, TempUnit());
-        snprintf_P(mqtt_data, sizeof(mqtt_data), HTTP_SNS_HUM, mqtt_data, "SHT1X", humidity);
+        mqtt_msg.sprintf_P(FPSTR( HTTP_SNS_TEMP), "SHT1X", temperature, TempUnit());
+        mqtt_msg.sprintf_P(FPSTR( HTTP_SNS_HUM), "SHT1X", humidity);
 #endif  // USE_WEBSERVER
       }
     }

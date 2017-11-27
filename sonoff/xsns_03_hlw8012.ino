@@ -466,6 +466,8 @@ boolean HlwCommand(char *type, uint16_t index, char *dataBuf, uint16_t data_len,
   uint8_t unit = 0;
   unsigned long nvalue = 0;
 
+  mqtt_msg.reset();
+
   int command_code = GetCommandCode(command, sizeof(command), type, kHlw8012Commands);
   if (CMND_POWERLOW == command_code) {
     if ((payload >= 0) && (payload < 3601)) {
@@ -532,7 +534,7 @@ boolean HlwCommand(char *type, uint16_t index, char *dataBuf, uint16_t data_len,
     dtostrfd((float)Settings.hlw_kWhyesterday / 100000000, Settings.flag.energy_resolution, syesterday_energy);
     dtostrfd((float)RtcSettings.hlw_kWhtoday / 100000000, Settings.flag.energy_resolution, stoday_energy);
     dtostrfd((float)(RtcSettings.hlw_kWhtotal + (hlw_kWhtoday / 1000)) / 100000, Settings.flag.energy_resolution, stotal_energy);
-    snprintf_P(mqtt_data, sizeof(mqtt_data), PSTR("{\"%s\":{\"" D_TOTAL "\":%s, \"" D_YESTERDAY "\":%s, \"" D_TODAY "\":%s}}"),
+    mqtt_msg.sprintf_P(F("{\"%s\":{\"" D_TOTAL "\":%s, \"" D_YESTERDAY "\":%s, \"" D_TODAY "\":%s}}"),
       command, stotal_energy, syesterday_energy, stoday_energy);
     status_flag = 1;
   }
@@ -645,9 +647,9 @@ boolean HlwCommand(char *type, uint16_t index, char *dataBuf, uint16_t data_len,
   }
   if (!status_flag) {
     if (Settings.flag.value_units) {
-      snprintf_P(mqtt_data, sizeof(mqtt_data), S_JSON_COMMAND_NVALUE_SPACE_UNIT, command, nvalue, GetTextIndexed(sunit, sizeof(sunit), unit, kUnitNames));
+      mqtt_msg.sprintf_P(FPSTR(S_JSON_COMMAND_NVALUE_SPACE_UNIT), command, nvalue, GetTextIndexed(sunit, sizeof(sunit), unit, kUnitNames));
     } else {
-      snprintf_P(mqtt_data, sizeof(mqtt_data), S_JSON_COMMAND_NVALUE, command, nvalue);
+      mqtt_msg.sprintf_P(FPSTR(S_JSON_COMMAND_NVALUE), command, nvalue);
     }
   }
   return serviced;

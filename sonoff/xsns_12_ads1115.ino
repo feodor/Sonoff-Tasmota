@@ -111,21 +111,21 @@ void Ads1115Show(boolean json)
 
       if (json) {
         if (!dsxflg  ) {
-          snprintf_P(mqtt_data, sizeof(mqtt_data), PSTR("%s, \"ADS1115\":{"), mqtt_data);
+          mqtt_msg += F(", \"ADS1115\":{");
           stemp[0] = '\0';
         }
         dsxflg++;
-        snprintf_P(mqtt_data, sizeof(mqtt_data), PSTR("%s%s\"" D_ANALOG_INPUT "%d\":%d"), mqtt_data, stemp, i, adc_value);
+        mqtt_msg.sprintf_P(F("%s\"" D_ANALOG_INPUT "%d\":%d"), stemp, i, adc_value);
         strcpy(stemp, ", ");
 #ifdef USE_WEBSERVER
       } else {
-        snprintf_P(mqtt_data, sizeof(mqtt_data), HTTP_SNS_ANALOG, mqtt_data, "ADS1115", i, adc_value);
+        mqtt_msg.sprintf_P(FPSTR( HTTP_SNS_ANALOG), "ADS1115", i, adc_value);
 #endif  // USE_WEBSERVER
       }
     }
     if (json) {
       if (dsxflg) {
-        snprintf_P(mqtt_data, sizeof(mqtt_data), PSTR("%s}"), mqtt_data);
+		  mqtt_msg += '}';
       }
     }
   }

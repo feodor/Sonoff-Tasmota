@@ -103,7 +103,7 @@ void SonoffScSerialInput(char *rcvstat)
 
 #ifdef USE_WEBSERVER
 const char HTTP_SNS_SCPLUS[] PROGMEM =
-  "%s{s}" D_LIGHT "{m}%d%{e}{s}" D_NOISE "{m}%d%{e}{s}" D_AIR_QUALITY "{m}%d%{e}";  // {s} = <tr><th>, {m} = </th><td>, {e} = </td></tr>
+  "{s}" D_LIGHT "{m}%d%{e}{s}" D_NOISE "{m}%d%{e}{s}" D_AIR_QUALITY "{m}%d%{e}";  // {s} = <tr><th>, {m} = </th><td>, {e} = </td></tr>
 #endif  // USE_WEBSERVER
 
 void SonoffScShow(boolean json)
@@ -118,17 +118,17 @@ void SonoffScShow(boolean json)
     dtostrfd(h, Settings.flag.humidity_resolution, humidity);
 
     if (json) {
-      snprintf_P(mqtt_data, sizeof(mqtt_data), PSTR("%s, \"" D_TEMPERATURE "\":%s, \"" D_HUMIDITY "\":%s, \"" D_LIGHT "\":%d, \"" D_NOISE "\":%d, \"" D_AIRQUALITY "\":%d"),
-        mqtt_data, temperature, humidity, sc_value[2], sc_value[3], sc_value[4]);
+      mqtt_msg.sprintf_P(F(", \"" D_TEMPERATURE "\":%s, \"" D_HUMIDITY "\":%s, \"" D_LIGHT "\":%d, \"" D_NOISE "\":%d, \"" D_AIRQUALITY "\":%d"),
+						 temperature, humidity, sc_value[2], sc_value[3], sc_value[4]);
 #ifdef USE_DOMOTICZ
       DomoticzTempHumSensor(temperature, humidity);
       DomoticzSensor(DZ_ILLUMINANCE, sc_value[2]);
 #endif  // USE_DOMOTICZ
 #ifdef USE_WEBSERVER
     } else {
-      snprintf_P(mqtt_data, sizeof(mqtt_data), HTTP_SNS_TEMP, mqtt_data, "", temperature, TempUnit());
-      snprintf_P(mqtt_data, sizeof(mqtt_data), HTTP_SNS_HUM, mqtt_data, "", humidity);
-      snprintf_P(mqtt_data, sizeof(mqtt_data), HTTP_SNS_SCPLUS, mqtt_data, sc_value[2], sc_value[3], sc_value[4]);
+      mqtt_msg.sprintf_P(FPSTR(HTTP_SNS_TEMP), "", temperature, TempUnit());
+      mqtt_msg.sprintf_P(FPSTR(HTTP_SNS_HUM), "", humidity);
+      mqtt_msg.sprintf_P(FPSTR(HTTP_SNS_SCPLUS), sc_value[2], sc_value[3], sc_value[4]);
 #endif  // USE_WEBSERVER
     }
   }

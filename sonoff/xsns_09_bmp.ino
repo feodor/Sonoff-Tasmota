@@ -428,25 +428,25 @@ void BmpShow(boolean json)
     if (json) {
       snprintf_P(sealevel, sizeof(sealevel), PSTR(", \"" D_PRESSUREATSEALEVEL "\":%s"), sea_pressure);
       if (BME280_CHIPID == bmp_type) {
-        snprintf_P(mqtt_data, sizeof(mqtt_data), PSTR("%s, \"%s\":{\"" D_TEMPERATURE "\":%s, \"" D_HUMIDITY "\":%s, \"" D_PRESSURE "\":%s%s}"),
-          mqtt_data, bmp_types, temperature, humidity, pressure, (Settings.altitude != 0) ? sealevel : "");
+        mqtt_msg.sprintf_P(F("%s, \"%s\":{\"" D_TEMPERATURE "\":%s, \"" D_HUMIDITY "\":%s, \"" D_PRESSURE "\":%s%s}"),
+          bmp_types, temperature, humidity, pressure, (Settings.altitude != 0) ? sealevel : "");
       }
       else {
-        snprintf_P(mqtt_data, sizeof(mqtt_data), PSTR("%s, \"%s\":{\"" D_TEMPERATURE "\":%s, \"" D_PRESSURE "\":%s%s}"),
-          mqtt_data, bmp_types, temperature, pressure, (Settings.altitude != 0) ? sealevel : "");
+        mqtt_msg.sprintf_P(F("%s, \"%s\":{\"" D_TEMPERATURE "\":%s, \"" D_PRESSURE "\":%s%s}"),
+          bmp_types, temperature, pressure, (Settings.altitude != 0) ? sealevel : "");
       }
 #ifdef USE_DOMOTICZ
       DomoticzTempHumPressureSensor(temperature, humidity, pressure);
 #endif // USE_DOMOTICZ
 #ifdef USE_WEBSERVER
     } else {
-      snprintf_P(mqtt_data, sizeof(mqtt_data), HTTP_SNS_TEMP, mqtt_data, bmp_types, temperature, TempUnit());
+      mqtt_msg.sprintf_P(FPSTR( HTTP_SNS_TEMP), bmp_types, temperature, TempUnit());
       if (BME280_CHIPID == bmp_type) {
-        snprintf_P(mqtt_data, sizeof(mqtt_data), HTTP_SNS_HUM, mqtt_data, bmp_types, humidity);
+        mqtt_msg.sprintf_P(FPSTR( HTTP_SNS_HUM), bmp_types, humidity);
       }
-      snprintf_P(mqtt_data, sizeof(mqtt_data), HTTP_SNS_PRESSURE, mqtt_data, bmp_types, pressure);
+      mqtt_msg.sprintf_P(FPSTR( HTTP_SNS_PRESSURE), bmp_types, pressure);
       if (Settings.altitude != 0) {
-        snprintf_P(mqtt_data, sizeof(mqtt_data), HTTP_SNS_SEAPRESSURE, mqtt_data, bmp_types, sea_pressure);
+        mqtt_msg.sprintf_P(FPSTR( HTTP_SNS_SEAPRESSURE), bmp_types, sea_pressure);
       }
 #endif // USE_WEBSERVER
     }

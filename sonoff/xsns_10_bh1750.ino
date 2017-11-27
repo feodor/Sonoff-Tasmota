@@ -75,7 +75,7 @@ boolean Bh1750Detect()
 
 #ifdef USE_WEBSERVER
 const char HTTP_SNS_ILLUMINANCE[] PROGMEM =
-  "%s{s}BH1750 " D_ILLUMINANCE "{m}%d " D_UNIT_LUX "{e}";  // {s} = <tr><th>, {m} = </th><td>, {e} = </td></tr>
+  "{s}BH1750 " D_ILLUMINANCE "{m}%d " D_UNIT_LUX "{e}";  // {s} = <tr><th>, {m} = </th><td>, {e} = </td></tr>
 #endif  // USE_WEBSERVER
 
 void Bh1750Show(boolean json)
@@ -84,13 +84,13 @@ void Bh1750Show(boolean json)
     uint16_t illuminance = Bh1750ReadLux();
 
     if (json) {
-      snprintf_P(mqtt_data, sizeof(mqtt_data), PSTR("%s, \"BH1750\":{\"" D_ILLUMINANCE "\":%d}"), mqtt_data, illuminance);
+      mqtt_msg.sprintf_P(F("%s, \"BH1750\":{\"" D_ILLUMINANCE "\":%d}"), illuminance);
 #ifdef USE_DOMOTICZ
       DomoticzSensor(DZ_ILLUMINANCE, illuminance);
 #endif  // USE_DOMOTICZ
 #ifdef USE_WEBSERVER
     } else {
-      snprintf_P(mqtt_data, sizeof(mqtt_data), HTTP_SNS_ILLUMINANCE, mqtt_data, illuminance);
+      mqtt_msg.sprintf_P(FPSTR( HTTP_SNS_ILLUMINANCE), illuminance);
 #endif  // USE_WEBSERVER
     }
   }

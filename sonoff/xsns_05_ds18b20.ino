@@ -193,13 +193,13 @@ void Ds18b20Show(boolean json)
     dtostrfi(t, Settings.flag.temperature_resolution, temperature);
 
     if(json) {
-      snprintf_P(mqtt_data, sizeof(mqtt_data), PSTR("%s, \"DS18B20\":{\"" D_TEMPERATURE "\":%s}"), mqtt_data, temperature);
+      mqtt_msg.sprintf_P(F(", \"DS18B20\":{\"" D_TEMPERATURE "\":%s}"), temperature);
 #ifdef USE_DOMOTICZ
       DomoticzSensor(DZ_TEMP, temperature);
 #endif  // USE_DOMOTICZ
 #ifdef USE_WEBSERVER
     } else {
-      snprintf_P(mqtt_data, sizeof(mqtt_data), HTTP_SNS_TEMP, mqtt_data, "DS18B20", temperature, TempUnit());
+      mqtt_msg.sprintf_P(FPSTR(HTTP_SNS_TEMP), "DS18B20", temperature, TempUnit());
 #endif  // USE_WEBSERVER
     }
   }

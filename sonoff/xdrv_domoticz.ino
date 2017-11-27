@@ -61,9 +61,8 @@ void MqttPublishDomoticzPowerState(byte device)
   }
   if (Settings.flag.mqtt_enabled && Settings.domoticz_relay_idx[device -1]) {
     snprintf_P(sdimmer, sizeof(sdimmer), PSTR("%d"), Settings.light_dimmer);
-    snprintf_P(mqtt_data, sizeof(mqtt_data), PSTR("{\"idx\":%d,\"nvalue\":%d,\"svalue\":\"%s\"}"),
-      Settings.domoticz_relay_idx[device -1], (power & (1 << (device -1))) ? 1 : 0, (light_type) ? sdimmer : "");
-    MqttPublish(domoticz_in_topic);
+    MqttPublish(domoticz_in_topic, F("{\"idx\":%d,\"nvalue\":%d,\"svalue\":\"%s\"}"),
+				Settings.domoticz_relay_idx[device -1], (power & (1 << (device -1))) ? 1 : 0, (light_type) ? sdimmer : "");
   }
 }
 
@@ -198,6 +197,8 @@ boolean DomoticzCommand(const char *type, uint16_t index, char *dataBuf, uint16_
   boolean serviced = true;
   uint8_t dmtcz_len = strlen(D_CMND_DOMOTICZ);  // Prep for string length change
 
+  mqtt_msg.reset();
+
   if (!strncasecmp_P(type, PSTR(D_CMND_DOMOTICZ), dmtcz_len)) {  // Prefix
     int command_code = GetCommandCode(command, sizeof(command), type +dmtcz_len, kDomoticzCommands);
     if ((CMND_IDX == command_code) && (index > 0) && (index <= MAX_DOMOTICZ_IDX)) {
@@ -205,31 +206,31 @@ boolean DomoticzCommand(const char *type, uint16_t index, char *dataBuf, uint16_
         Settings.domoticz_relay_idx[index -1] = payload;
         restart_flag = 2;
       }
-      snprintf_P(mqtt_data, sizeof(mqtt_data), PSTR("{\"" D_CMND_DOMOTICZ "%s%d\":%d}"), command, index, Settings.domoticz_relay_idx[index -1]);
+      mqtt_msg.sprintf_P(F("{\"" D_CMND_DOMOTICZ "%s%d\":%d}"), command, index, Settings.domoticz_relay_idx[index -1]);
     }
     else if ((CMND_KEYIDX == command_code) && (index > 0) && (index <= MAX_DOMOTICZ_IDX)) {
       if (payload >= 0) {
         Settings.domoticz_key_idx[index -1] = payload;
       }
-      snprintf_P(mqtt_data, sizeof(mqtt_data), PSTR("{\"" D_CMND_DOMOTICZ "%s%d\":%d}"), command, index, Settings.domoticz_key_idx[index -1]);
+      mqtt_msg.sprintf_P(F("{\"" D_CMND_DOMOTICZ "%s%d\":%d}"), command, index, Settings.domoticz_key_idx[index -1]);
     }
     else if ((CMND_SWITCHIDX == command_code) && (index > 0) && (index <= MAX_DOMOTICZ_IDX)) {
       if (payload >= 0) {
         Settings.domoticz_switch_idx[index -1] = payload;
       }
-      snprintf_P(mqtt_data, sizeof(mqtt_data), PSTR("{\"" D_CMND_DOMOTICZ "%s%d\":%d}"), command, index, Settings.domoticz_key_idx[index -1]);
+      mqtt_msg.sprintf_P(F("{\"" D_CMND_DOMOTICZ "%s%d\":%d}"), command, index, Settings.domoticz_key_idx[index -1]);
     }
     else if ((CMND_SENSORIDX == command_code) && (index > 0) && (index <= DZ_MAX_SENSORS)) {
       if (payload >= 0) {
         Settings.domoticz_sensor_idx[index -1] = payload;
       }
-      snprintf_P(mqtt_data, sizeof(mqtt_data), PSTR("{\"" D_CMND_DOMOTICZ "%s%d\":%d}"), command, index, Settings.domoticz_sensor_idx[index -1]);
+      mqtt_msg.sprintf_P(F("{\"" D_CMND_DOMOTICZ "%s%d\":%d}"), command, index, Settings.domoticz_sensor_idx[index -1]);
     }
     else if (CMND_UPDATETIMER == command_code) {
       if ((payload >= 0) && (payload < 3601)) {
         Settings.domoticz_update_timer = payload;
       }
-      snprintf_P(mqtt_data, sizeof(mqtt_data), PSTR("{\"" D_CMND_DOMOTICZ "%s\":%d}"), command, Settings.domoticz_update_timer);
+      mqtt_msg.sprintf_P(F("{\"" D_CMND_DOMOTICZ "%s\":%d}"), command, Settings.domoticz_update_timer);
     }
     else serviced = false;
   }
@@ -264,11 +265,12 @@ void DomoticzSensor(byte idx, char *data)
   if (Settings.domoticz_sensor_idx[idx]) {
     char dmess[64];
 
-    memcpy(dmess, mqtt_data, sizeof(dmess));
-    snprintf_P(mqtt_data, sizeof(dmess), PSTR("{\"idx\":%d,\"nvalue\":0,\"svalue\":\"%s\"}"),
-      Settings.domoticz_sensor_idx[idx], data);
-    MqttPublish(domoticz_in_topic);
-    memcpy(mqtt_data, dmess, sizeof(dmess));
+    memcpy(dmess, mqtt_msg.c_str(), sizeof(dmess));
+	dmess[ sizeof(dmess) - 1 ] = '\0';
+    MqttPublish(domoticz_in_topic, 
+				F("{\"idx\":%d,\"nvalue\":0,\"svalue\":\"%s\"}"),
+				Settings.domoticz_sensor_idx[idx], data);
+	mqtt_msg = dmess;
   }
 }
 

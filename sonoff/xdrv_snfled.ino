@@ -336,10 +336,10 @@ void LightPreparePower()
 
   GetPowerDevice(scommand, devices_present, sizeof(scommand));
   if (light_subtype > LST_SINGLE) {
-    snprintf_P(mqtt_data, sizeof(mqtt_data), PSTR("{\"%s\":\"%s\", \"" D_CMND_DIMMER "\":%d, \"" D_CMND_COLOR "\":\"%s\"}"),
+    mqtt_msg.sprintf_P(F("{\"%s\":\"%s\", \"" D_CMND_DIMMER "\":%d, \"" D_CMND_COLOR "\":\"%s\"}"),
       scommand, GetStateText(light_power), Settings.light_dimmer, LightGetColor(0, scolor));
   } else {
-    snprintf_P(mqtt_data, sizeof(mqtt_data), PSTR("{\"%s\":\"%s\", \"" D_CMND_DIMMER "\":%d}"),
+    mqtt_msg.sprintf_P(F("{\"%s\":\"%s\", \"" D_CMND_DIMMER "\":%d}"),
       scommand, GetStateText(light_power), Settings.light_dimmer);
   }
 }
@@ -489,7 +489,7 @@ void LightAnimate()
               light_new_color[i] = light_current_color[i];
             }
           } else {
-            snprintf_P(mqtt_data, sizeof(mqtt_data), PSTR("{\"" D_CMND_WAKEUP "\":\"" D_DONE "\"}"));
+            mqtt_msg.sprintf_P(F("{\"" D_CMND_WAKEUP "\":\"" D_DONE "\"}"));
             MqttPublishPrefixTopic_P(2, PSTR(D_CMND_WAKEUP));
             light_wakeup_active = 0;
             Settings.light_scheme = LS_POWER;
@@ -758,6 +758,8 @@ boolean LightCommand(char *type, uint16_t index, char *dataBuf, uint16_t data_le
   boolean valid_entry = false;
   char scolor[25];
 
+  mqtt_msg.reset();
+
   int command_code = GetCommandCode(command, sizeof(command), type, kLightCommands);
   if ((CMND_COLOR == command_code) && (light_subtype > LST_SINGLE) && (index > 0) && (index <= 4)) {
     if (data_len > 0) {
@@ -779,7 +781,7 @@ boolean LightCommand(char *type, uint16_t index, char *dataBuf, uint16_t data_le
       }
     }
     if (!valid_entry && (1 == index)) {
-      snprintf_P(mqtt_data, sizeof(mqtt_data), PSTR("{\"%s\":\"%s\"}"), command, LightGetColor(0, scolor));
+      mqtt_msg.sprintf_P(F("{\"%s\":\"%s\"}"), command, LightGetColor(0, scolor));
     }
     if (index > 1) {
       scolor[0] = '\0';
@@ -790,7 +792,7 @@ boolean LightCommand(char *type, uint16_t index, char *dataBuf, uint16_t data_le
           snprintf_P(scolor, 25, PSTR("%s%02X"), scolor, Settings.ws_color[index -2][i]);
         }
       }
-      snprintf_P(mqtt_data, sizeof(mqtt_data), S_JSON_COMMAND_INDEX_SVALUE, command, index, scolor);
+      mqtt_msg.sprintf_P( FPSTR(S_JSON_COMMAND_INDEX_SVALUE), command, index, scolor);
     }
   }
 #ifdef USE_WS2812  //  ***********************************************************************
@@ -800,7 +802,7 @@ boolean LightCommand(char *type, uint16_t index, char *dataBuf, uint16_t data_le
         Ws2812SetColor(index, light_entry_color[0], light_entry_color[1], light_entry_color[2]);
       }
     }
-    snprintf_P(mqtt_data, sizeof(mqtt_data), S_JSON_COMMAND_INDEX_SVALUE, command, index, Ws2812GetColor(index, scolor));
+    mqtt_msg.sprintf_P( FPSTR(S_JSON_COMMAND_INDEX_SVALUE), command, index, Ws2812GetColor(index, scolor));
   }
   else if ((CMND_PIXELS == command_code) && (LT_WS2812 == light_type)) {
     if ((payload > 0) && (payload <= WS2812_MAX_LEDS)) {
@@ -808,19 +810,19 @@ boolean LightCommand(char *type, uint16_t index, char *dataBuf, uint16_t data_le
       Ws2812Clear();
       light_update = 1;
     }
-    snprintf_P(mqtt_data, sizeof(mqtt_data), S_JSON_COMMAND_NVALUE, command, Settings.light_pixels);
+    mqtt_msg.sprintf_P( FPSTR(S_JSON_COMMAND_NVALUE), command, Settings.light_pixels);
   }
   else if ((CMND_WIDTH == command_code) && (LT_WS2812 == light_type) && (index > 0) && (index <= 4)) {
     if (1 == index) {
       if ((payload >= 0) && (payload <= 4)) {
         Settings.light_width = payload;
       }
-      snprintf_P(mqtt_data, sizeof(mqtt_data), S_JSON_COMMAND_NVALUE, command, Settings.light_width);
+      mqtt_msg.sprintf_P( FPSTR(S_JSON_COMMAND_NVALUE), command, Settings.light_width);
     } else {
       if ((payload > 0) && (payload < 32)) {
         Settings.ws_width[index -2] = payload;
       }
-      snprintf_P(mqtt_data, sizeof(mqtt_data), S_JSON_COMMAND_INDEX_NVALUE, command, index, Settings.ws_width[index -2]);
+      mqtt_msg.sprintf_P( FPSTR(S_JSON_COMMAND_INDEX_NVALUE), command, index, Settings.ws_width[index -2]);
     }
   }
 #endif  // USE_WS2812 ************************************************************************
@@ -834,7 +836,7 @@ boolean LightCommand(char *type, uint16_t index, char *dataBuf, uint16_t data_le
       LightPowerOn();
       strip_timer_counter = 0;
     }
-    snprintf_P(mqtt_data, sizeof(mqtt_data), S_JSON_COMMAND_NVALUE, command, Settings.light_scheme);
+    mqtt_msg.sprintf_P( FPSTR(S_JSON_COMMAND_NVALUE), command, Settings.light_scheme);
   }
   else if (CMND_WAKEUP == command_code) {
     if ((payload >= 0) && (payload <= 100)) {
@@ -843,14 +845,14 @@ boolean LightCommand(char *type, uint16_t index, char *dataBuf, uint16_t data_le
     light_wakeup_active = 3;
     Settings.light_scheme = LS_WAKEUP;
     LightPowerOn();
-    snprintf_P(mqtt_data, sizeof(mqtt_data), S_JSON_COMMAND_SVALUE, command, D_STARTED);
+    mqtt_msg.sprintf_P( FPSTR(S_JSON_COMMAND_SVALUE), command, D_STARTED);
   }
   else if ((CMND_COLORTEMPERATURE == command_code) && ((2 == light_subtype) || (5 == light_subtype))) { // ColorTemp
     if ((payload >= 153) && (payload <= 500)) {  // https://developers.meethue.com/documentation/core-concepts
       LightSetColorTemp(payload);
       coldim = true;
     } else {
-      snprintf_P(mqtt_data, sizeof(mqtt_data), S_JSON_COMMAND_NVALUE, command, LightGetColorTemp());
+      mqtt_msg.sprintf_P( FPSTR(S_JSON_COMMAND_NVALUE), command, LightGetColorTemp());
     }
   }
   else if (CMND_DIMMER == command_code) {
@@ -858,7 +860,7 @@ boolean LightCommand(char *type, uint16_t index, char *dataBuf, uint16_t data_le
       Settings.light_dimmer = payload;
       coldim = true;
     } else {
-      snprintf_P(mqtt_data, sizeof(mqtt_data), S_JSON_COMMAND_NVALUE, command, Settings.light_dimmer);
+      mqtt_msg.sprintf_P( FPSTR(S_JSON_COMMAND_NVALUE), command, Settings.light_dimmer);
     }
   }
   else if (CMND_LEDTABLE == command_code) {
@@ -874,7 +876,7 @@ boolean LightCommand(char *type, uint16_t index, char *dataBuf, uint16_t data_le
       }
       light_update = 1;
     }
-    snprintf_P(mqtt_data, sizeof(mqtt_data), S_JSON_COMMAND_SVALUE, command, GetStateText(Settings.light_correction));
+    mqtt_msg.sprintf_P( FPSTR(S_JSON_COMMAND_SVALUE), command, GetStateText(Settings.light_correction));
   }
   else if (CMND_FADE == command_code) {
     switch (payload) {
@@ -886,28 +888,28 @@ boolean LightCommand(char *type, uint16_t index, char *dataBuf, uint16_t data_le
       Settings.light_fade ^= 1;
       break;
     }
-    snprintf_P(mqtt_data, sizeof(mqtt_data), S_JSON_COMMAND_SVALUE, command, GetStateText(Settings.light_fade));
+    mqtt_msg.sprintf_P( FPSTR(S_JSON_COMMAND_SVALUE), command, GetStateText(Settings.light_fade));
   }
   else if (CMND_SPEED == command_code) {  // 1 - fast, 20 - very slow
     if ((payload > 0) && (payload <= STATES)) {
       Settings.light_speed = payload;
     }
-    snprintf_P(mqtt_data, sizeof(mqtt_data), S_JSON_COMMAND_NVALUE, command, Settings.light_speed);
+    mqtt_msg.sprintf_P( FPSTR(S_JSON_COMMAND_NVALUE), command, Settings.light_speed);
   }
   else if (CMND_WAKEUPDURATION == command_code) {
     if ((payload > 0) && (payload < 3001)) {
       Settings.light_wakeup = payload;
       light_wakeup_active = 0;
     }
-    snprintf_P(mqtt_data, sizeof(mqtt_data), S_JSON_COMMAND_NVALUE, command, Settings.light_wakeup);
+    mqtt_msg.sprintf_P( FPSTR(S_JSON_COMMAND_NVALUE), command, Settings.light_wakeup);
   }
   else if (CMND_UNDOCA == command_code) {  // Theos legacy status
     LightGetColor(1, scolor);
     scolor[6] = '\0';  // RGB only
-    snprintf_P(mqtt_data, sizeof(mqtt_data), PSTR("%s, %d, %d, %d, %d, %d"),
+    mqtt_msg.sprintf_P(F("%s, %d, %d, %d, %d, %d"),
       scolor, Settings.light_fade, Settings.light_correction, Settings.light_scheme, Settings.light_speed, Settings.light_width);
     MqttPublishPrefixTopic_P(1, type);
-    mqtt_data[0] = '\0';
+    mqtt_msg.reset();
   }
   else {
     serviced = false;  // Unknown command

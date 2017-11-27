@@ -539,11 +539,11 @@ void HandleAjaxStatusRefresh()
   }
 
   String page = "";
-  mqtt_data[0] = '\0';
+  mqtt_msg.reset();
   XsnsCall(FUNC_XSNS_WEB, &mqtt_msg);
-  if (strlen(mqtt_data)) {
+  if (mqtt_msg.length() > 0) {
     page += FPSTR(HTTP_TABLE100);
-    page += mqtt_data;
+    page += mqtt_msg.c_str();
     page += F("</table>");
   }
   char line[80];
@@ -1023,8 +1023,7 @@ void HandleSaveSettings()
     strlcpy(stemp2, (!strlen(WebServer->arg("mf").c_str())) ? MQTT_FULLTOPIC : WebServer->arg("mf").c_str(), sizeof(stemp2));
     MakeValidMqtt(1,stemp2);
     if ((strcmp(stemp, Settings.mqtt_topic)) || (strcmp(stemp2, Settings.mqtt_fulltopic))) {
-      snprintf_P(mqtt_data, sizeof(mqtt_data), (Settings.flag.mqtt_offline) ? S_OFFLINE : "");
-      MqttPublishPrefixTopic_P(2, S_LWT, true);  // Offline or remove previous retained topic
+      MqttPublishPrefixTopic_P(2, S_LWT, true, (Settings.flag.mqtt_offline) ? S_OFFLINE : "");  // Offline or remove previous retained topic
     }
     strlcpy(Settings.mqtt_topic, stemp, sizeof(Settings.mqtt_topic));
     strlcpy(Settings.mqtt_fulltopic, stemp2, sizeof(Settings.mqtt_fulltopic));

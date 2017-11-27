@@ -84,7 +84,7 @@ void CounterInit()
 
 #ifdef USE_WEBSERVER
 const char HTTP_SNS_COUNTER[] PROGMEM =
-  "%s{s}" D_COUNTER "%d{m}%s%s{e}";  // {s} = <tr><th>, {m} = </th><td>, {e} = </td></tr>
+  "{s}" D_COUNTER "%d{m}%s%s{e}";  // {s} = <tr><th>, {m} = </th><td>, {e} = </td></tr>
 #endif  // USE_WEBSERVER
 
 void CounterShow(boolean json)
@@ -102,7 +102,7 @@ void CounterShow(boolean json)
       }
 
       if (json) {
-        snprintf_P(mqtt_data, sizeof(mqtt_data), PSTR("%s, \"" D_COUNTER "%d\":%s"), mqtt_data, i +1, counter);
+        mqtt_msg.sprintf_P(F(", \"" D_COUNTER "%d\":%s"), i +1, counter);
 #ifdef USE_DOMOTICZ
         if (1 == dsxflg) {
           DomoticzSensor(DZ_COUNT, RtcSettings.pulse_counter[i]);
@@ -111,7 +111,7 @@ void CounterShow(boolean json)
 #endif  // USE_DOMOTICZ
 #ifdef USE_WEBSERVER
       } else {
-        snprintf_P(mqtt_data, sizeof(mqtt_data), HTTP_SNS_COUNTER, mqtt_data, i +1, counter, (bitRead(Settings.pulse_counter_type, i)) ? " " D_UNIT_SECOND : "");
+        mqtt_msg.sprintf_P(FPSTR(HTTP_SNS_COUNTER), i +1, counter, (bitRead(Settings.pulse_counter_type, i)) ? " " D_UNIT_SECOND : "");
 #endif  // USE_WEBSERVER
       }
     }
