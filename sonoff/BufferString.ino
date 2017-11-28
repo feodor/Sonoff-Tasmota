@@ -648,24 +648,31 @@ int BufferString::vsprintf(const char * format, va_list ap) {
 int BufferString::sprintf_P(const __FlashStringHelper * formatP, ...) {
     int ret;
     va_list arglist;
-	char formatBuffer[128];
-	char * format = formatBuffer;
-	int  formatLength = strlen_P((PGM_P)formatP);
-
-	if (formatLength >= sizeof(formatBuffer))
-		format = new char[formatLength + 1];
-	
-	memcpy_P(format, (PGM_P)formatP, formatLength);
-	format[formatLength] = '\0';
 
     va_start(arglist, formatP);
-    ret = vsprintf(format, arglist);
+    ret = vsprintf_P(formatP, arglist);
     va_end(arglist);
-
-	if (formatLength >= sizeof(formatBuffer))
-		delete[] format;
 
     return ret;
 }
 
+int BufferString::vsprintf_P(const __FlashStringHelper * formatP, va_list ap)
+{
+	int	ret;
+	char	formatBuffer[128];
+	char * format = formatBuffer;
 
+	int  formatLength = strlen_P((PGM_P)formatP);
+	if (formatLength >= sizeof(formatBuffer))
+		format = new char[formatLength + 1];
+
+	memcpy_P(format, (PGM_P)formatP, formatLength);
+	format[formatLength] = '\0';
+
+	ret = vsprintf(format, ap);
+
+	if (formatLength >= sizeof(formatBuffer))
+		delete[] format;
+
+	return ret;
+}

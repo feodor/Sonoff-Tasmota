@@ -205,6 +205,7 @@ class BufferString {
 		int sprintf(const char * format, ...);
 		int vsprintf(const char * format, va_list ap);
 		int sprintf_P(const __FlashStringHelper * formatP, ...);
+		int vsprintf_P(const __FlashStringHelper * formatP, va_list ap);
 
 	protected:
 		char *buffer;			// the actual char array
