@@ -33,17 +33,96 @@
 #define DS18X20_MAX_SENSORS  8
 
 #include <OneWire.h>
+#include <Ticker.h>
 
-OneWire *ds = NULL;
+static OneWire *ds = NULL;
+static Ticker	Ds18x20Ticker;
 
-uint8_t ds18x20_address[DS18X20_MAX_SENSORS][8];
-uint8_t ds18x20_index[DS18X20_MAX_SENSORS];
-uint8_t ds18x20_sensors = 0;
-char ds18x20_types[9];
+#define MAX_TRY_COUNT		3
+#define CONTROL_PERIOD		200
+//see Ds18x20Convert()
+#define WAIT_TO_READ 		750 
+
+
+typedef enum {
+	Ds18x20_WAIT_PREP = 0,
+	Ds18x20_WAIT_READ,
+	Ds18x20_IN_PROGRESS
+} Ds18x20States;
+
+static struct {
+	uint8_t address[DS18X20_MAX_SENSORS][8];
+	uint8_t index[DS18X20_MAX_SENSORS];
+	uint8_t trycount[DS18X20_MAX_SENSORS];	
+	float   temperature[DS18X20_MAX_SENSORS];
+	uint8_t num;
+	uint8_t loopcount;
+	Ds18x20States state;
+	char buffer[9];
+} Ds18x20State; 
 
 void Ds18x20Init()
 {
   ds = new OneWire(pin[GPIO_DSB]);
+
+  memset(&Ds18x20State, 0, sizeof(Ds18x20State));
+  Ds18x20State.state = Ds18x20_WAIT_PREP;
+
+  for (byte i = 0; i<DS18X20_MAX_SENSORS; i++)
+	  Ds18x20State.temperature[i] = NAN;
+
+  Ds18x20Ticker.attach_ms(CONTROL_PERIOD, Ds18x20Watch);
+}
+
+void Ds18x20Watch()
+{
+	if (Ds18x20State.state == Ds18x20_WAIT_PREP)
+	{
+		// set in progrees to do not mix 
+		Ds18x20State.state = Ds18x20_IN_PROGRESS;
+    	Ds18x20Search();      // Check for changes in sensors number
+    	Ds18x20Convert();     // Start Conversion, takes up to one second
+		Ds18x20State.state = Ds18x20_WAIT_READ;
+		Ds18x20State.loopcount = 0;
+	}
+	else if (Ds18x20State.state == Ds18x20_WAIT_READ)
+	{
+		Ds18x20State.loopcount++;
+
+		if (Ds18x20State.loopcount * CONTROL_PERIOD >= WAIT_TO_READ)
+		{
+			Ds18x20State.state = Ds18x20_IN_PROGRESS;
+
+			for (byte i = 0; i < Ds18x20Sensors(); i++)
+			{
+				float t;
+	    		if (Ds18x20Read(i, t))
+				{
+					Ds18x20State.temperature[i] = t;
+					Ds18x20State.trycount[i] = 0;
+				}
+				else if (Ds18x20State.trycount[i] >= MAX_TRY_COUNT)
+				{
+					Ds18x20State.temperature[i] = NAN;
+				}
+				else
+				{
+					Ds18x20State.trycount[i]++;
+				}
+			}
+
+			Ds18x20State.state = Ds18x20_WAIT_PREP;
+		}
+	}
+	else if (Ds18x20State.state == Ds18x20_IN_PROGRESS)
+	{
+		AddLog_P(LOG_LEVEL_INFO, PSTR("Seems, another loop is not finished yet"));
+	}
+	else
+	{
+		AddLog_PP(LOG_LEVEL_INFO, PSTR("Unexpected state of Ds18x20: %d"),
+				  Ds18x20State.state);
+	}
 }
 
 void Ds18x20Search()
@@ -53,32 +132,32 @@ void Ds18x20Search()
 
   ds->reset_search();
   for (num_sensors = 0; num_sensors < DS18X20_MAX_SENSORS; num_sensors) {
-    if (!ds->search(ds18x20_address[num_sensors])) {
+    if (!ds->search(Ds18x20State.address[num_sensors])) {
       ds->reset_search();
       break;
     }
     // If CRC Ok and Type DS18S20, DS18B20 or MAX31850
-    if ((OneWire::crc8(ds18x20_address[num_sensors], 7) == ds18x20_address[num_sensors][7]) &&
-       ((ds18x20_address[num_sensors][0]==DS18S20_CHIPID) || (ds18x20_address[num_sensors][0]==DS18B20_CHIPID) || (ds18x20_address[num_sensors][0]==MAX31850_CHIPID))) {
+    if ((OneWire::crc8(Ds18x20State.address[num_sensors], 7) == Ds18x20State.address[num_sensors][7]) &&
+       ((Ds18x20State.address[num_sensors][0]==DS18S20_CHIPID) || (Ds18x20State.address[num_sensors][0]==DS18B20_CHIPID) || (Ds18x20State.address[num_sensors][0]==MAX31850_CHIPID))) {
       num_sensors++;
     }
   }
   for (byte i = 0; i < num_sensors; i++) {
-    ds18x20_index[i] = i;
+    Ds18x20State.index[i] = i;
   }
   for (byte i = 0; i < num_sensors; i++) {
     for (byte j = i + 1; j < num_sensors; j++) {
-      if (uint32_t(ds18x20_address[ds18x20_index[i]]) > uint32_t(ds18x20_address[ds18x20_index[j]])) {
-        std::swap(ds18x20_index[i], ds18x20_index[j]);
+      if (uint32_t(Ds18x20State.address[Ds18x20State.index[i]]) > uint32_t(Ds18x20State.address[Ds18x20State.index[j]])) {
+        std::swap(Ds18x20State.index[i], Ds18x20State.index[j]);
       }
     }
   }
-  ds18x20_sensors = num_sensors;
+  Ds18x20State.num = num_sensors;
 }
 
 uint8_t Ds18x20Sensors()
 {
-  return ds18x20_sensors;
+  return Ds18x20State.num;
 }
 
 String Ds18x20Addresses(uint8_t sensor)
@@ -86,7 +165,7 @@ String Ds18x20Addresses(uint8_t sensor)
   char address[20];
 
   for (byte i = 0; i < 8; i++) {
-    sprintf(address+2*i, "%02X", ds18x20_address[ds18x20_index[sensor]][i]);
+    sprintf(address+2*i, "%02X", Ds18x20State.address[Ds18x20State.index[sensor]][i]);
   }
   return String(address);
 }
@@ -109,14 +188,14 @@ boolean Ds18x20Read(uint8_t sensor, float &t)
   t = NAN;
 
   ds->reset();
-  ds->select(ds18x20_address[ds18x20_index[sensor]]);
+  ds->select(Ds18x20State.address[Ds18x20State.index[sensor]]);
   ds->write(W1_READ_SCRATCHPAD); // Read Scratchpad
 
   for (byte i = 0; i < 9; i++) {
     data[i] = ds->read();
   }
   if (OneWire::crc8(data, 8) == data[8]) {
-    switch(ds18x20_address[ds18x20_index[sensor]][0]) {
+    switch(Ds18x20State.address[Ds18x20State.index[sensor]][0]) {
     case DS18S20_CHIPID:  // DS18S20
       if (data[1] > 0x80) {
         data[0] = (~data[0]) +1;
@@ -145,16 +224,16 @@ boolean Ds18x20Read(uint8_t sensor, float &t)
 
 void Ds18x20Type(uint8_t sensor)
 {
-  strcpy_P(ds18x20_types, PSTR("DS18x20"));
-  switch(ds18x20_address[ds18x20_index[sensor]][0]) {
+  strcpy_P(Ds18x20State.buffer, PSTR("DS18x20"));
+  switch(Ds18x20State.address[Ds18x20State.index[sensor]][0]) {
     case DS18S20_CHIPID:
-      strcpy_P(ds18x20_types, PSTR("DS18S20"));
+      strcpy_P(Ds18x20State.buffer, PSTR("DS18S20"));
       break;
     case DS18B20_CHIPID:
-      strcpy_P(ds18x20_types, PSTR("DS18B20"));
+      strcpy_P(Ds18x20State.buffer, PSTR("DS18B20"));
       break;
     case MAX31850_CHIPID:
-      strcpy_P(ds18x20_types, PSTR("MAX31850"));
+      strcpy_P(Ds18x20State.buffer, PSTR("MAX31850"));
       break;
   }
 }
@@ -165,13 +244,14 @@ void Ds18x20Show(byte type, void *arg)
 {
   char temperature[10];
   char stemp[10];
-  float t;
   float sum = 0;
   byte  counter = 0;
 
   byte dsxflg = 0;
   for (byte i = 0; i < Ds18x20Sensors(); i++) {
-    if (Ds18x20Read(i, t)) {           // Check if read failed
+    if (!isnan(Ds18x20State.temperature[i])) {
+	  float t = Ds18x20State.temperature[i];
+
 	  sum += t;
 	  counter++;
 
@@ -186,7 +266,7 @@ void Ds18x20Show(byte type, void *arg)
         }
         dsxflg++;
 		mqtt_msg.sprintf_P(F("%s\"DS%d\":{\"" D_TYPE "\":\"%s\", \"" D_ADDRESS "\":\"%s\", \"" D_TEMPERATURE "\":%s}"),
-						   stemp, i +1, ds18x20_types, Ds18x20Addresses(i).c_str(), temperature);
+						   stemp, i +1, Ds18x20State.buffer, Ds18x20Addresses(i).c_str(), temperature);
 		mqtt_msg += F(", ");
 #ifdef USE_DOMOTICZ
         if (1 == dsxflg) {
@@ -195,7 +275,7 @@ void Ds18x20Show(byte type, void *arg)
 #endif  // USE_DOMOTICZ
 #ifdef USE_WEBSERVER
       } else if (type == SHOW_WEB) {
-        snprintf_P(stemp, sizeof(stemp), PSTR("%s-%d"), ds18x20_types, i +1);
+        snprintf_P(stemp, sizeof(stemp), PSTR("%s-%d"), Ds18x20State.buffer, i +1);
         mqtt_msg.sprintf_P(FPSTR(HTTP_SNS_TEMP), stemp, temperature, TempUnit());
 #endif  // USE_WEBSERVER
       }
@@ -210,16 +290,8 @@ void Ds18x20Show(byte type, void *arg)
 		*(float*)arg = NAN;
   }
 
-  if (type == SHOW_JSON) {
-    if (dsxflg) {
+  if (type == SHOW_JSON && dsxflg)
 		mqtt_msg += '}';
-    }
-#ifdef USE_WEBSERVER
-  } else if (type == SHOW_WEB) {
-    Ds18x20Search();      // Check for changes in sensors number
-    Ds18x20Convert();     // Start Conversion, takes up to one second
-#endif  // USE_WEBSERVER
-  }
 }
 
 /*********************************************************************************************\
@@ -237,19 +309,15 @@ boolean Xsns05(byte function, void *arg)
       case FUNC_XSNS_INIT:
         Ds18x20Init();
         break;
-      case FUNC_XSNS_PREP:
-        Ds18x20Search();      // Check for changes in sensors number
-        Ds18x20Convert();     // Start Conversion, takes up to one second
-        break;
       case FUNC_XSNS_READ:
         Ds18x20Show(0, arg);
         break;
       case FUNC_XSNS_JSON_APPEND:
-        Ds18x20Show(SHOW_JSON, arg);
+        Ds18x20Show(SHOW_JSON, NULL);
         break;
 #ifdef USE_WEBSERVER
       case FUNC_XSNS_WEB:
-        Ds18x20Show(SHOW_WEB, arg);
+        Ds18x20Show(SHOW_WEB, NULL);
         break;
 #endif  // USE_WEBSERVER
     }

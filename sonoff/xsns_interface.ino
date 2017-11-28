@@ -115,17 +115,8 @@ boolean XsnsCall(byte Function, void *arg)
 {
   boolean result = false;
 
-  switch (Function) {
-    case FUNC_XSNS_INIT:
-    case FUNC_XSNS_PREP:
-    case FUNC_XSNS_JSON_APPEND:
-    case FUNC_XSNS_MQTT_SHOW:
-    case FUNC_XSNS_WEB:
-      for (byte x = 0; x < xsns_present; x++) {
-        xsns_func_ptr[x](Function, arg);
-      }
-      break;
-  }
+  for (byte x = 0; x < xsns_present; x++)
+    xsns_func_ptr[x](Function, arg);
 
   return result;
 }

@@ -1412,14 +1412,12 @@ void AddLog_PP(byte loglevel, const char *formatP, ...)
 	if (CheckLogLevel(loglevel))
 		return;
 
-	BufferString format(helper_buffer, sizeof(helper_buffer));
 	va_list	arglist;
 
 	log_data_string.reset();
-	format = FPSTR(formatP);
 
 	va_start(arglist, formatP);
-	log_data_string.vsprintf(format.c_str(), arglist);
+	log_data_string.vsprintf_P(FPSTR(formatP), arglist);
 	va_end(arglist);
 
 	AddLog(loglevel);

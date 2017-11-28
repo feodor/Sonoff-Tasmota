@@ -195,7 +195,7 @@ BufferString	mqtt_msg(mqtt_data, sizeof(mqtt_data));
 String web_log[MAX_LOG_LINES];              // Web log buffer
 String backlog[MAX_BACKLOG];                // Command backlog
 
-char helper_buffer[TOPSZ + MESSZ];        // helper buffer for various usage, ie format string for sprintf_P
+char helper_buffer[TOPSZ];        // helper buffer for various usage, ie format string for sprintf_P
 
 #define MAX_MQTT_ATTEMPT_COUNT	(3)
 static uint8 mqtt_attempt_count = MAX_MQTT_ATTEMPT_COUNT;
@@ -356,7 +356,14 @@ void MqttSubscribe(const char *topic)
 
 void MqttPublishDirect(const char* topic, boolean retained)
 {
+  yield();
+
   if (Settings.flag.mqtt_enabled) {
+
+	MqttClient.loop(); 
+
+	yield();
+
     if (MqttClient.publish(topic, mqtt_data, retained)) {
       AddLog_PP(LOG_LEVEL_INFO, PSTR(D_LOG_MQTT "%s = %s%s"), topic, mqtt_data, (retained) ? " (" D_RETAINED ")" : "");
 //      MqttClient.loop();  // Do not use here! Will block previous publishes
@@ -367,6 +374,7 @@ void MqttPublishDirect(const char* topic, boolean retained)
     AddLog_PP(LOG_LEVEL_INFO, PSTR(D_LOG_RESULT "%s = %s"), strrchr(topic,'/')+1, mqtt_data);
   }
 
+  mqtt_msg.reset();
   if (Settings.ledstate &0x04) {
     blinks++;
   }
@@ -387,14 +395,12 @@ void MqttPublish(const char* topic, boolean retained = false)
 
 void MqttPublish(const char* topic, bool retained, const char *formatP, ...)
 {
-	BufferString format(helper_buffer, sizeof(helper_buffer));
 	va_list	arglist;
 
 	mqtt_msg.reset();
-	format = FPSTR(formatP);
 
 	va_start(arglist, formatP);
-	mqtt_msg.vsprintf(format.c_str(), arglist);
+	mqtt_msg.vsprintf_P(FPSTR(formatP), arglist);
 	va_end(arglist);
 
 	MqttPublish(topic, retained);
@@ -417,9 +423,7 @@ MqttPublishPrefixTopic_PV(uint8_t prefix, const char* subtopic, boolean retained
 	if (formatP)
 	{
 		mqtt_msg.reset();
-		format = FPSTR(formatP);
-
-		mqtt_msg.vsprintf(format.c_str(), arglist);
+		mqtt_msg.vsprintf_P(FPSTR(formatP), arglist);
 	}
 
 	/* reuse format string */
@@ -462,15 +466,18 @@ void MqttPublishSimple_P(const char* subtopic, const char *v)
 
 	yield();
 
-	topic = GetTopic_P(2, Settings.mqtt_topic, subtopic);
 	if (Settings.flag.mqtt_enabled)
 	{
+		topic = GetTopic_P(2, Settings.mqtt_topic, subtopic);
+
 		MqttClient.loop();
 		yield();
 
 		if (!MqttClient.publish(topic, v, false))
 			AddLog_PP(LOG_LEVEL_INFO, PSTR(D_LOG_RESULT " failed %s = %s"), topic, v);
 	}
+
+  	mqtt_msg.reset();
 }
 
 void MqttPublishSimple_P(const char* subtopic, int v)
@@ -1872,7 +1879,8 @@ boolean MqttShowSensor()
   boolean json_data_available = (mqtt_msg.length() - json_data_start);
   if (strstr_P(mqtt_msg.c_str(), PSTR(D_TEMPERATURE)))
     mqtt_msg.sprintf_P(F(", \"" D_TEMPERATURE_UNIT "\":\"%c\""), TempUnit());
-  if (RtcSettings.thermocontrol_duty_ratio >= 0)
+  if (RtcSettings.thermocontrol_duty_ratio >= 0 &&
+	  RtcSettings.thermocontrol_duty_ratio < 100)
   {
 	char ratio[10];
 
@@ -1899,7 +1907,6 @@ ActThermoControl(float current_temperature)
 
     uint8_t device = 1;
     bool is_power, should_poweron = true;
-	float total_time, on_time;
 
     is_power = ((power >> (device - 1)) & 0x01) ? true : false;
 
@@ -1936,6 +1943,8 @@ ActThermoControl(float current_temperature)
 		{
 			if (RtcSettings.thermocontrol_down_time > 0)
 			{
+				float total_time, on_time;
+
 				total_time = LocalTime() - RtcSettings.thermocontrol_down_time;
 				on_time = LocalTime() - RtcSettings.thermocontrol_up_time;
 
@@ -2004,13 +2013,18 @@ void PerformEverySecond()
     }
   }
 
+#ifdef TEMPERATURE_CONTROL
+	  float current_temperature = NAN;
+	  XsnsCall(FUNC_XSNS_READ, &current_temperature);
+  	  ActThermoControl(current_temperature);
+#endif
+
   if (Settings.tele_period) {
     tele_period++;
     if (tele_period == Settings.tele_period -1) {
       XsnsCall(FUNC_XSNS_PREP, NULL);
     }
     if (tele_period >= Settings.tele_period) {
-	  float current_temperature = NAN;
       tele_period = 0;
 
 /*
@@ -2028,15 +2042,11 @@ void PerformEverySecond()
 */
 	  mqtt_msg.reset();
 
-	  XsnsCall(FUNC_XSNS_JSON_APPEND, &current_temperature);
-#ifdef TEMPERATURE_CONTROL
-  	  ActThermoControl(current_temperature);
-#endif
-
 	  MqttPublishSimple_P(PSTR("time"), GetDateAndTime().c_str()); 
 	  if (!isnan(current_temperature))
 	  	MqttPublishSimple_P(PSTR("temperature"), current_temperature);
-	  if (RtcSettings.thermocontrol_duty_ratio >= 0)
+	  if (RtcSettings.thermocontrol_duty_ratio >= 0 &&
+		  RtcSettings.thermocontrol_duty_ratio <= 100)
 	  	MqttPublishSimple_P(PSTR("ratio"), RtcSettings.thermocontrol_duty_ratio);
 	  MqttPublishSimple_P(PSTR("destination"), Settings.destination_temperature); 
 	  MqttPublishSimple_P(PSTR("delta"), Settings.delta_temperature); 
