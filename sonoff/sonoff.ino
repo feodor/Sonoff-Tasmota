@@ -1878,8 +1878,8 @@ boolean MqttShowSensor()
   boolean json_data_available = (mqtt_msg.length() - json_data_start);
   if (strstr_P(mqtt_msg.c_str(), PSTR(D_TEMPERATURE)))
     mqtt_msg.sprintf_P(F(", \"" D_TEMPERATURE_UNIT "\":\"%c\""), TempUnit());
-  if (RtcSettings.thermocontrol_duty_ratio >= 0 &&
-	  RtcSettings.thermocontrol_duty_ratio < 100)
+  if (RtcSettings.thermocontrol_duty_ratio >= 0.0 &&
+	  RtcSettings.thermocontrol_duty_ratio < 1.0)
   {
 	char ratio[10];
 
@@ -1950,7 +1950,7 @@ ActThermoControl(float current_temperature)
 				total_time = LocalTime() - RtcSettings.thermocontrol_down_time;
 				on_time = LocalTime() - RtcSettings.thermocontrol_up_time;
 
-				RtcSettings.thermocontrol_duty_ratio = 100.0 * on_time/total_time;
+				RtcSettings.thermocontrol_duty_ratio = on_time/total_time;
 				RtcSettingsSave();
 			}
 			RtcSettings.thermocontrol_down_time = LocalTime();
@@ -2047,8 +2047,8 @@ void PerformEverySecond()
 	  MqttPublishSimple_P(PSTR("time"), GetDateAndTime().c_str()); 
 	  if (!isnan(current_temperature))
 	  	MqttPublishSimple_P(PSTR("temperature"), current_temperature);
-	  if (RtcSettings.thermocontrol_duty_ratio >= 0 &&
-		  RtcSettings.thermocontrol_duty_ratio <= 100)
+	  if (RtcSettings.thermocontrol_duty_ratio >= 0.0 &&
+		  RtcSettings.thermocontrol_duty_ratio <= 1.0)
 	  	MqttPublishSimple_P(PSTR("ratio"), RtcSettings.thermocontrol_duty_ratio);
 	  MqttPublishSimple_P(PSTR("destination"), Settings.destination_temperature); 
 	  MqttPublishSimple_P(PSTR("delta"), Settings.delta_temperature); 
