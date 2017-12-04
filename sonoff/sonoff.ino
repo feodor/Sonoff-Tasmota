@@ -365,13 +365,13 @@ void MqttPublishDirect(const char* topic, boolean retained)
 	yield();
 
     if (MqttClient.publish(topic, mqtt_data, retained)) {
-      AddLog_PP(LOG_LEVEL_INFO, PSTR(D_LOG_MQTT "%s = %s%s"), topic, mqtt_data, (retained) ? " (" D_RETAINED ")" : "");
+      AddLog_PP(LOG_LEVEL_DEBUG, PSTR(D_LOG_MQTT "%s = %s%s"), topic, mqtt_data, (retained) ? " (" D_RETAINED ")" : "");
 //      MqttClient.loop();  // Do not use here! Will block previous publishes
     } else  {
-      AddLog_PP(LOG_LEVEL_INFO, PSTR(D_LOG_RESULT "%s = %s"), topic, mqtt_data);
+      AddLog_PP(LOG_LEVEL_INFO, PSTR(D_LOG_RESULT "failed %s = %s"), topic, mqtt_data);
     }
   } else {
-    AddLog_PP(LOG_LEVEL_INFO, PSTR(D_LOG_RESULT "%s = %s"), strrchr(topic,'/')+1, mqtt_data);
+    AddLog_PP(LOG_LEVEL_DEBUG, PSTR(D_LOG_RESULT "%s = %s"), strrchr(topic,'/')+1, mqtt_data);
   }
 
   mqtt_msg.reset();
@@ -418,7 +418,7 @@ MqttPublishPrefixTopic_PV(uint8_t prefix, const char* subtopic, boolean retained
  * prefix 5 = stat using subtopic or RESULT
  * prefix 6 = tele using subtopic or RESULT
  */
-	BufferString format(helper_buffer, sizeof(helper_buffer));
+	BufferString topic(helper_buffer, sizeof(helper_buffer));
 
 	if (formatP)
 	{
@@ -426,15 +426,14 @@ MqttPublishPrefixTopic_PV(uint8_t prefix, const char* subtopic, boolean retained
 		mqtt_msg.vsprintf_P(FPSTR(formatP), arglist);
 	}
 
-	/* reuse format string */
 	if ((prefix > 3) && !Settings.flag.mqtt_response)
-		format = FPSTR(S_RSLT_RESULT);
+		topic = FPSTR(S_RSLT_RESULT);
 	else
-		format = FPSTR(subtopic);
-	format.toUpperCase();
+		topic = FPSTR(subtopic);
+	topic.toUpperCase();
 
 	prefix &= 3;
-	MqttPublish(GetTopic_P(prefix, Settings.mqtt_topic, format.c_str()), retained);
+	MqttPublish(GetTopic_P(prefix, Settings.mqtt_topic, topic.c_str()), retained);
 	
 }
 
@@ -1904,6 +1903,9 @@ ActThermoControl(float current_temperature)
         return;
     if (Ds18x20Sensors() == 0)
         return;
+	if (isnan(current_temperature) && millis() < 5000)
+		/* do not act immediatly after restart */ 
+		return;
 
     uint8_t device = 1;
     bool is_power, should_poweron = true;
