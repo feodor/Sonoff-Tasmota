@@ -195,7 +195,7 @@ BufferString	mqtt_msg(mqtt_data, sizeof(mqtt_data));
 String web_log[MAX_LOG_LINES];              // Web log buffer
 String backlog[MAX_BACKLOG];                // Command backlog
 
-char helper_buffer[TOPSZ];        // helper buffer for various usage, ie format string for sprintf_P
+char helper_buffer[160 /* MAX(TOPSZ, 160 */ ];  // helper buffer for various usage, ie format string for sprintf_P
 
 #define MAX_MQTT_ATTEMPT_COUNT	(3)
 static uint8 mqtt_attempt_count = MAX_MQTT_ATTEMPT_COUNT;
@@ -207,27 +207,28 @@ static char topic_buffer[TOPSZ];
 void GetMqttClient(char* output, const char* input, byte size)
 {
   char *token;
-  uint8_t digits = 0;
+  BufferString buffer(output, size);
 
-  if (strstr(input, "%")) {
-    strlcpy(output, input, size);
-    token = strtok(output, "%");
-    if (strstr(input, "%") == input) {
-      output[0] = '\0';
-    } else {
-      token = strtok(NULL, "");
-    }
-    if (token != NULL) {
-      digits = atoi(token);
-      if (digits) {
-        snprintf_P(output, size, PSTR("%s%c0%dX"), output, '%', digits);
-        snprintf_P(output, size, output, ESP.getChipId());
-      }
-    }
+  token = strchr(input, '%');
+
+  if (token)
+  {
+	  token++;
+
+	  while(*token && isdigit(*token))
+		  token++;
+
+	  if (!(*token == 'd' || *token == 'X' || *token == 'x'))
+		  token = NULL;
+	  else if (strchr(token, '%') != NULL)
+		  /* % is a single in string */
+		  token = NULL;
   }
-  if (!digits) {
-    strlcpy(output, input, size);
-  }
+
+  if (token)
+	  buffer.sprintf(input, ESP.getChipId());
+  else
+	  buffer = input;
 }
 
 const char * GetTopic_P(byte prefix, char *topic, const char* subtopic)

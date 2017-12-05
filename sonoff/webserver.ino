@@ -466,8 +466,7 @@ void HandleRoot()
   if (HTTP_MANAGER == webserver_state) {
     HandleWifiConfiguration();
   } else {
-    char stemp[10];
-    char line[160];
+    BufferString line(helper_buffer, sizeof(helper_buffer));
     String page = FPSTR(HTTP_HEAD);
     page.replace(F("{v}"), FPSTR(S_MAIN_MENU));
     page.replace(F("<body>"), F("<body onload='la()'>"));
@@ -476,19 +475,24 @@ void HandleRoot()
     if (devices_present) {
       if (light_type) {
         if ((LST_COLDWARM == (light_type &7)) || (LST_RGBWC == (light_type &7))) {
-          snprintf_P(line, sizeof(line), HTTP_MSG_SLIDER1, LightGetColorTemp());
-          page += line;
+          line.sprintf_P(FPSTR(HTTP_MSG_SLIDER1), LightGetColorTemp());
         }
-        snprintf_P(line, sizeof(line), HTTP_MSG_SLIDER2, Settings.light_dimmer);
-        page += line;
+        line.sprintf_P(FPSTR(HTTP_MSG_SLIDER2), Settings.light_dimmer);
+        page += line.c_str();
       }
       page += FPSTR(HTTP_TABLE100);
       page += F("<tr>");
       for (byte idx = 1; idx <= devices_present; idx++) {
-        snprintf_P(stemp, sizeof(stemp), PSTR(" %d"), idx);
-        snprintf_P(line, sizeof(line), PSTR("<td style='width:%d%'><button onclick='la(\"?o=%d\");'>%s%s</button></td>"),
-          100 / devices_present, idx, (devices_present < 5) ? D_BUTTON_TOGGLE : "", (devices_present > 1) ? stemp : "");
-        page += line;
+		line.reset();
+		line.sprintf_P(F("<td style='width:%d%'><button onclick='la(\"?o=%d\");'>%s"),
+					   100 / devices_present, idx, (devices_present < 5) ?  D_BUTTON_TOGGLE : "");
+		page += line.c_str();
+		if (devices_present > 1)
+		{
+			line += ' ';
+			line += (long)idx;
+		}
+		page += F("</button></td>");
       }
       page += F("</tr></table>");
     }
@@ -502,9 +506,10 @@ void HandleRoot()
         }
         for (byte j = 0; j < 4; j++) {
           idx++;
-          snprintf_P(line, sizeof(line), PSTR("<td style='width:25%'><button onclick='la(\"?k=%d\");'>%d</button></td>"),
-            idx, idx);
-          page += line;
+		  line.reset();
+          line.sprintf_P(F("<td style='width:25%'><button onclick='la(\"?k=%d\");'>%d</button></td>"),
+						 idx, idx);
+          page += line.c_str();
         }
       }
       page += F("</tr></table>");
@@ -520,22 +525,25 @@ void HandleRoot()
 
 void HandleAjaxStatusRefresh()
 {
-  char svalue[80];
+  BufferString svalue(helper_buffer, sizeof(helper_buffer));
 
   if (strlen(WebServer->arg("o").c_str())) {
     ExecuteCommandPower(atoi(WebServer->arg("o").c_str()), 2);
   }
   if (strlen(WebServer->arg("d").c_str())) {
-    snprintf_P(svalue, sizeof(svalue), PSTR(D_CMND_DIMMER " %s"), WebServer->arg("d").c_str());
-    ExecuteCommand(svalue);
+	svalue.reset();
+    svalue.sprintf_P(F(D_CMND_DIMMER " %s"), WebServer->arg("d").c_str());
+    ExecuteCommand((char*)svalue.c_str());
   }
   if (strlen(WebServer->arg("t").c_str())) {
-    snprintf_P(svalue, sizeof(svalue), PSTR(D_CMND_COLORTEMPERATURE " %s"), WebServer->arg("t").c_str());
-    ExecuteCommand(svalue);
+	svalue.reset();
+    svalue.sprintf_P(F(D_CMND_COLORTEMPERATURE " %s"), WebServer->arg("t").c_str());
+    ExecuteCommand((char*)svalue.c_str());
   }
   if (strlen(WebServer->arg("k").c_str())) {
-    snprintf_P(svalue, sizeof(svalue), PSTR(D_CMND_RFKEY "%s"), WebServer->arg("k").c_str());
-    ExecuteCommand(svalue);
+	svalue.reset();
+    svalue.sprintf_P(F(D_CMND_RFKEY "%s"), WebServer->arg("k").c_str());
+    ExecuteCommand((char*)svalue.c_str());
   }
 
   String page = "";
@@ -546,17 +554,24 @@ void HandleAjaxStatusRefresh()
     page += mqtt_msg.c_str();
     page += F("</table>");
   }
-  char line[80];
   if (devices_present) {
     page += FPSTR(HTTP_TABLE100);
     page += F("<tr>");
     uint8_t fsize = (devices_present < 5) ? 70 - (devices_present * 8) : 32;
     for (byte idx = 1; idx <= devices_present; idx++) {
-      snprintf_P(svalue, sizeof(svalue), PSTR("%d"), bitRead(power, idx -1));
-//      snprintf_P(line, sizeof(line), PSTR("<td style='width:%d%'><div style='text-align:center;font-weight:%s;font-size:%dpx'>%s</div></td>"),
-      snprintf_P(line, sizeof(line), PSTR("<td style='width:%d{t}%s;font-size:%dpx'>%s</div></td>"),  // {t} = %'><div style='text-align:center;font-weight:
-        100 / devices_present, (bitRead(power, idx -1)) ? "bold" : "normal", fsize, (devices_present < 5) ? GetStateText(bitRead(power, idx -1)) : svalue);
-      page += line;
+		svalue.reset();
+		svalue.sprintf_P(F("<td style='width:%d{t}%s;font-size:%dpx'>"),
+						 100 / devices_present,
+						 (bitRead(power, idx -1)) ?  "bold" : "normal",
+						 fsize);
+
+		if (devices_present < 5)
+			svalue +=  GetStateText(bitRead(power, idx -1));
+		else
+      		svalue += bitRead(power, idx -1);
+		
+		page += svalue.c_str();
+		page += F("</div></td>");
     }
     page += F("</tr></table>");
   }
