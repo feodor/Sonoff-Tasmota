@@ -32,7 +32,6 @@ extern "C" {
 
 // Function prototypes
 void WifiWpsStatusCallback(wps_cb_status status);
-char * int2char(int v);
 
 #ifdef __cplusplus
 }

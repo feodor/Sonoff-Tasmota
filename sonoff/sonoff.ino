@@ -482,7 +482,9 @@ void MqttPublishSimple_P(const char* subtopic, const char *v)
 
 void MqttPublishSimple_P(const char* subtopic, int v)
 {
-	MqttPublishSimple_P(subtopic, int2char(v));
+	char buf[2 + 3 * sizeof(long)];
+	ltoa(v, buf, 10);
+	MqttPublishSimple_P(subtopic, buf);
 }
 
 void MqttPublishSimple_P(const char* subtopic, float v)
