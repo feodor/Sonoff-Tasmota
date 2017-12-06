@@ -675,16 +675,17 @@ void HandleModuleConfiguration()
     return;
   }
   char stemp[20];
-  char line[160];
   uint8_t midx;
+  BufferString buffer(helper_buffer, sizeof(helper_buffer));
+  BufferString sbuffer(stemp, sizeof(stemp));
 
   AddLog_P(LOG_LEVEL_DEBUG, S_LOG_HTTP, S_CONFIGURE_MODULE);
 
   String page = FPSTR(HTTP_HEAD);
   page.replace(F("{v}"), FPSTR(S_CONFIGURE_MODULE));
   page += FPSTR(HTTP_FORM_MODULE);
-  snprintf_P(stemp, sizeof(stemp), kModules[MODULE].name);
-  page.replace(F("{mt"), stemp);
+  buffer = FPSTR(kModules[MODULE].name);
+  page.replace(F("{mt"), buffer.c_str());
 
 #ifdef TEMPERATURE_CONTROL
   page.replace(F("{z1"), (Settings.enable_temperature_control) ? F(" checked") : F(""));
@@ -709,18 +710,19 @@ void HandleModuleConfiguration()
   String func = FPSTR(HTTP_SCRIPT_MODULE1);
   for (byte i = 0; i < MAXMODULE; i++) {
     midx = pgm_read_byte(kNiceList + i);
-    snprintf_P(stemp, sizeof(stemp), kModules[midx].name);
-    snprintf_P(line, sizeof(line), HTTP_SCRIPT_MODULE2, midx, midx +1, stemp);
-    func += line;
+	sbuffer = FPSTR(kModules[midx].name);
+	buffer.reset();
+    buffer.sprintf_P(FPSTR(HTTP_SCRIPT_MODULE2), midx, midx +1, sbuffer.c_str());
+    func += buffer.c_str();
   }
   func += FPSTR(HTTP_SCRIPT_MODULE3);
-  snprintf_P(line, sizeof(line), PSTR("sk(%d,99);o0=\""), Settings.module);  // g99
-  func += line;
+  func += F("sk("); func += Settings.module; func += F(",99);o0=\""); // g99
   for (byte j = 0; j < GPIO_SENSOR_END; j++) {
     if (!GetUsedInModule(j, cmodule.gp.io)) {
-      snprintf_P(stemp, sizeof(stemp), kSensors[j]);
-      snprintf_P(line, sizeof(line), HTTP_SCRIPT_MODULE2, j, j, stemp);
-      func += line;
+		sbuffer = FPSTR(kSensors[j]);
+		buffer.reset();
+      	buffer.sprintf_P(FPSTR(HTTP_SCRIPT_MODULE2), j, j, sbuffer.c_str());
+		func += buffer.c_str();
     }
   }
   func += FPSTR(HTTP_SCRIPT_MODULE3);
@@ -728,12 +730,17 @@ void HandleModuleConfiguration()
   page += F("<br/><table>");
   for (byte i = 0; i < MAX_GPIO_PIN; i++) {
     if (GPIO_USER == cmodule.gp.io[i]) {
-      snprintf_P(stemp, 3, PINS_WEMOS +i*2);
-      snprintf_P(line, sizeof(line), PSTR("<tr><td width='190'>%s <b>" D_GPIO "%d</b> %s</td><td width='126'><select id='g%d' name='g%d'></select></td></tr>"),
+	  strncpy_P(stemp, PINS_WEMOS +i*2, 2);
+  	  stemp[2] = '\0';
+
+	  buffer.reset();
+      buffer.sprintf_P(F("<tr><td width='190'>%s <b>" D_GPIO "%d</b> %s</td><td width='126'><select id='g%d' name='g%d'></select></td></tr>"),
         (WEMOS==Settings.module)?stemp:"", i, (0==i)? D_SENSOR_BUTTON "1":(1==i)? D_SERIAL_OUT :(3==i)? D_SERIAL_IN :(12==i)? D_SENSOR_RELAY "1":(13==i)? D_SENSOR_LED "1i":(14==i)? D_SENSOR :"", i, i);
-      page += line;
-      snprintf_P(line, sizeof(line), PSTR("sk(%d,%d);"), my_module.gp.io[i], i);  // g0 - g16
-      func += line;
+      page += buffer.c_str();
+
+	  buffer.reset();
+      buffer.sprintf_P(F("sk(%d,%d);"), my_module.gp.io[i], i);  // g0 - g16
+      func += buffer.c_str();
     }
   }
   page += F("</table>");
@@ -937,7 +944,7 @@ void HandleOtherConfiguration()
     return;
   }
   AddLog_P(LOG_LEVEL_DEBUG, S_LOG_HTTP, S_CONFIGURE_OTHER);
-  char stemp[40];
+  BufferString buffer(helper_buffer, sizeof(helper_buffer));
 
   String page = FPSTR(HTTP_HEAD);
   page.replace(F("{v}"), FPSTR(S_CONFIGURE_OTHER));
@@ -962,8 +969,9 @@ void HandleOtherConfiguration()
   for (byte i = 1; i < maxfn; i++) {
     page += FPSTR(HTTP_FORM_OTHER2);
     page.replace(F("{1"), String(i +1));
-    snprintf_P(stemp, sizeof(stemp), PSTR(FRIENDLY_NAME"%d"), i +1);
-    page.replace(F("{2"), stemp);
+	buffer.reset();
+    buffer.sprintf_P(F(FRIENDLY_NAME"%d"), i +1);
+    page.replace(F("{2"), buffer.c_str());
     page.replace(F("{3"), Settings.friendlyname[i]);
   }
   page += F("<br/></fieldset>");
@@ -981,14 +989,14 @@ void HandleBackupConfiguration()
   AddLog_P(LOG_LEVEL_DEBUG, PSTR(D_LOG_HTTP D_BACKUP_CONFIGURATION));
 
   uint8_t buffer[sizeof(Settings)];
+  BufferString attachment(helper_buffer, sizeof(helper_buffer));
 
   WiFiClient myClient = WebServer->client();
   WebServer->setContentLength(sizeof(buffer));
 
-  char attachment[100];
-  snprintf_P(attachment, sizeof(attachment), PSTR("attachment; filename=Config_%s_%s.dmp"),
-    Settings.friendlyname[0], version);
-  WebServer->sendHeader(F("Content-Disposition"), attachment);
+  attachment.sprintf_P(F("attachment; filename=Config_%s_%s.dmp"),
+					   Settings.friendlyname[0], version);
+  WebServer->sendHeader(F("Content-Disposition"), attachment.c_str());
   WebServer->send(200, FPSTR(HDR_CTYPE_STREAM), "");
   memcpy(buffer, &Settings, sizeof(buffer));
   buffer[0] = CONFIG_FILE_SIGN;
@@ -1121,7 +1129,7 @@ void HandleSaveSettings()
         if (GPIO_USER == cmodule.gp.io[i]) {
           snprintf_P(stemp, sizeof(stemp), PSTR("g%d"), i);
           Settings.my_gp.io[i] = (!strlen(WebServer->arg(stemp).c_str())) ? 0 : atoi(WebServer->arg(stemp).c_str());
-          gpios += F(", " D_GPIO ); gpios += String(i); gpios += F(" "); gpios += String(Settings.my_gp.io[i]);
+          gpios += F(", " D_GPIO ); gpios += i; gpios += F(" "); gpios += Settings.my_gp.io[i];
         }
       }
     }
@@ -1498,9 +1506,9 @@ void HandleAjaxConsoleRefresh()
   }
 
   String message = F("<r><i>");
-  message += String(web_log_index);
+  message += web_log_index;
   message += F("</i><j>");
-  message += String(reset_web_log_flag);
+  message += reset_web_log_flag;
   if (!reset_web_log_flag) {
     counter = 99;
     reset_web_log_flag = 1;
@@ -1538,7 +1546,7 @@ void HandleInformation()
   AddLog_P(LOG_LEVEL_DEBUG, S_LOG_HTTP, S_INFORMATION);
 
   int freeMem = ESP.getFreeHeap();
-  char stopic[TOPSZ];
+  BufferString buffer(helper_buffer, sizeof(helper_buffer));
 
   String page = FPSTR(HTTP_HEAD);
   page.replace(F("{v}"), FPSTR(S_INFORMATION));
@@ -1554,11 +1562,13 @@ void HandleInformation()
   func += F("<table style'width:100%;'><tr><th>");
   func += F(D_PROGRAM_VERSION "}2"); func += version;
   func += F("}1" D_BUILD_DATE_AND_TIME "}2"); func += GetBuildDateAndTime();
-  func += F("}1" D_CORE_AND_SDK_VERSION "}2"); func += ESP.getCoreVersion(); func += F("/"); func += String(ESP.getSdkVersion());
-  func += F("}1" D_UPTIME "}2"); func += String(uptime); func += F(" Hours");
-  snprintf_P(stopic, sizeof(stopic), PSTR(" at %X"), GetSettingsAddress());
-  func += F("}1" D_FLASH_WRITE_COUNT "}2"); func += String(Settings.save_flag); func += stopic;
-  func += F("}1" D_BOOT_COUNT "}2"); func += String(Settings.bootcount);
+  func += F("}1" D_CORE_AND_SDK_VERSION "}2"); func += ESP.getCoreVersion(); func += F("/"); func += ESP.getSdkVersion();
+  func += F("}1" D_UPTIME "}2"); func += uptime; func += F(" Hours");
+  func += F("}1" D_FLASH_WRITE_COUNT "}2"); func += Settings.save_flag;
+  buffer.sprintf_P(F(" at %X"), GetSettingsAddress());
+  func += buffer.c_str();
+
+  func += F("}1" D_BOOT_COUNT "}2"); func += Settings.bootcount;
   func += F("}1" D_RESTART_REASON "}2"); func += GetResetReason();
   func += F("}1" D_CURRENT D_TIME "}2"); func += GetDateAndTime();
   uint8_t maxfn = (devices_present > MAX_FRIENDLYNAMES) ? MAX_FRIENDLYNAMES : devices_present;
@@ -1567,7 +1577,7 @@ void HandleInformation()
   }
 
   func += F("}1}2&nbsp;");  // Empty line
-  func += F("}1" D_AP); func += String(Settings.sta_active +1);
+  func += F("}1" D_AP); func += (Settings.sta_active +1);
     func += F(" " D_SSID " (" D_RSSI ")}2"); func += Settings.sta_ssid[Settings.sta_active]; func += F(" ("); func += WifiGetRssiAsQuality(WiFi.RSSI()); func += F("%)");
   func += F("}1" D_HOSTNAME "}2"); func += my_hostname;
   if (static_cast<uint32_t>(WiFi.localIP()) != 0) {
@@ -1586,7 +1596,7 @@ void HandleInformation()
   func += F("}1}2&nbsp;");  // Empty line
   if (Settings.flag.mqtt_enabled) {
     func += F("}1" D_MQTT_HOST "}2"); func += Settings.mqtt_host;
-    func += F("}1" D_MQTT_PORT "}2"); func += String(Settings.mqtt_port);
+    func += F("}1" D_MQTT_PORT "}2"); func += Settings.mqtt_port;
     func += F("}1" D_MQTT_CLIENT " &<br/>&nbsp;" D_FALLBACK_TOPIC "}2"); func += mqtt_client;
     func += F("}1" D_MQTT_USER "}2"); func += Settings.mqtt_user;
     func += F("}1" D_MQTT_TOPIC "}2"); func += Settings.mqtt_topic;
@@ -1627,13 +1637,13 @@ void HandleInformation()
 #endif // USE_DISCOVERY
 
   func += F("}1}2&nbsp;");  // Empty line
-  func += F("}1" D_ESP_CHIP_ID "}2"); func += String(ESP.getChipId());
-  func += F("}1" D_FLASH_CHIP_ID "}2"); func += String(ESP.getFlashChipId());
-  func += F("}1" D_FLASH_CHIP_SIZE "}2"); func += String(ESP.getFlashChipRealSize() / 1024); func += F("kB");
-  func += F("}1" D_PROGRAM_FLASH_SIZE "}2"); func += String(ESP.getFlashChipSize() / 1024); func += F("kB");
-  func += F("}1" D_PROGRAM_SIZE "}2"); func += String(ESP.getSketchSize() / 1024); func += F("kB");
-  func += F("}1" D_FREE_PROGRAM_SPACE "}2"); func += String(ESP.getFreeSketchSpace() / 1024); func += F("kB");
-  func += F("}1" D_FREE_MEMORY "}2"); func += String(freeMem / 1024); func += F("kB");
+  func += F("}1" D_ESP_CHIP_ID "}2"); func += ESP.getChipId();
+  func += F("}1" D_FLASH_CHIP_ID "}2"); func += ESP.getFlashChipId();
+  func += F("}1" D_FLASH_CHIP_SIZE "}2"); func += (ESP.getFlashChipRealSize() / 1024); func += F("kB");
+  func += F("}1" D_PROGRAM_FLASH_SIZE "}2"); func += (ESP.getFlashChipSize() / 1024); func += F("kB");
+  func += F("}1" D_PROGRAM_SIZE "}2"); func += (ESP.getSketchSize() / 1024); func += F("kB");
+  func += F("}1" D_FREE_PROGRAM_SPACE "}2"); func += (ESP.getFreeSketchSpace() / 1024); func += F("kB");
+  func += F("}1" D_FREE_MEMORY "}2"); func += (freeMem / 1024); func += F("kB");
   func += F("</td></tr></table>");
   func += FPSTR(HTTP_SCRIPT_INFO_END);
   page.replace(F("</script>"), func);
@@ -1700,7 +1710,7 @@ boolean CaptivePortal()
   if ((HTTP_MANAGER == webserver_state) && !ValidIpAddress(WebServer->hostHeader())) {
     AddLog_P(LOG_LEVEL_DEBUG, PSTR(D_LOG_HTTP D_REDIRECTED));
 
-    WebServer->sendHeader(F("Location"), String("http://") + WebServer->client().localIP().toString(), true);
+    WebServer->sendHeader(F("Location"), "http://" + WebServer->client().localIP().toString(), true);
     WebServer->send(302, FPSTR(HDR_CTYPE_PLAIN), ""); // Empty content inhibits Content-length header so we have to close the socket ourselves.
     WebServer->client().stop(); // Stop is needed because we sent no content length
     return true;
