@@ -807,7 +807,7 @@ void I2cScan(BufferString &devs)
   if (any) {
 	devs += '"'; devs += '}';
   } else {
-    devs = F("{\"" D_CMND_I2CSCAN "\":\"" D_I2CSCAN_NO_DEVICES_FOUND "\"}"));
+    devs = F("{\"" D_CMND_I2CSCAN "\":\"" D_I2CSCAN_NO_DEVICES_FOUND "\"}");
   }
 }
 
