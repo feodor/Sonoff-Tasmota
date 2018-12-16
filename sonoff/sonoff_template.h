@@ -176,6 +176,7 @@ enum SupportedModules {
   WION,
   WEMOS,
   SONOFF_DEV,
+  GENERIC,
   H801,
   SONOFF_SC,
   SONOFF_BN,
@@ -221,6 +222,7 @@ const uint8_t kNiceList[MAXMODULE] PROGMEM = {
   SONOFF_4CHPRO,
   SONOFF_SV,
   SONOFF_DEV,
+  GENERIC,
   S20,
   SLAMPHER,
   SONOFF_TOUCH,
@@ -500,6 +502,24 @@ const mytmplt kModules[MAXMODULE] PROGMEM = {
      0,                // GPIO15
      0,                // GPIO16
      GPIO_ADC0         // ADC0 A0 Analog input
+  },
+  { "Generic",         // Any ESP8266/ESP8285 device like WeMos and NodeMCU hardware (ESP8266)
+     GPIO_USER,        // GPIO00 D3 Wemos Button Shield
+     GPIO_USER,        // GPIO01 TX Serial RXD
+     GPIO_USER,        // GPIO02 D4 Wemos DHT Shield
+     GPIO_USER,        // GPIO03 RX Serial TXD and Optional sensor
+     GPIO_USER,        // GPIO04 D2 Wemos I2C SDA
+     GPIO_USER,        // GPIO05 D1 Wemos I2C SCL / Wemos Relay Shield (0 = Off, 1 = On) / Wemos WS2812B RGB led Shield
+     0, 0, 0,          // Flash connection
+     GPIO_USER,        // Flash connection or GPIO09 on ESP8285 only!
+     GPIO_USER,        // Flash connection or GPIO10 on ESP8285 only!
+     0,                // Flash connection
+     GPIO_USER,        // GPIO12 D6
+     GPIO_USER,        // GPIO13 D7
+     GPIO_USER,        // GPIO14 D5
+     GPIO_USER,        // GPIO15 D8
+     GPIO_USER,        // GPIO16 D0 Wemos Wake
+     GPIO_ADC0         // ADC0   A0 Analog input
   },
   { "H801",            // Lixada H801 Wifi (ESP8266)
      GPIO_KEY1,        // GPIO00 E-FW Button
