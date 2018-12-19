@@ -231,10 +231,9 @@ void GetMqttClient(char* output, const char* input, byte size)
 	  buffer = input;
 }
 
-const char * GetTopic_P(byte prefix, char *topic, const char* subtopic)
+static void *
+GetTopicInternal(BufferString& fulltopic, byte prefix, char *topic)
 {
-  BufferString fulltopic(topic_buffer, sizeof(topic_buffer));
-
   if (fallback_topic_flag) {
     fulltopic = FPSTR(kPrefixes[prefix]);
     fulltopic += F("/");
@@ -258,7 +257,26 @@ const char * GetTopic_P(byte prefix, char *topic, const char* subtopic)
   if (!fulltopic.endsWith('/')) {
     fulltopic += '/';
   }
+}
+
+const char * GetTopic_P(byte prefix, char *topic, const char* subtopic)
+{
+  BufferString fulltopic(topic_buffer, sizeof(topic_buffer));
+
+  GetTopicInternal(fulltopic, prefix, topic);
+
   fulltopic += FPSTR(subtopic);
+
+  return fulltopic.c_str();
+}
+
+const char * GetTopic(byte prefix, char *topic, const char* subtopic)
+{
+  BufferString fulltopic(topic_buffer, sizeof(topic_buffer));
+
+  GetTopicInternal(fulltopic, prefix, topic);
+
+  fulltopic += subtopic;
 
   return fulltopic.c_str();
 }
@@ -493,6 +511,41 @@ void MqttPublishSimple_P(const char* subtopic, float v)
 
 	dtostrfd(v, 3, sv);
 	MqttPublishSimple_P(subtopic, sv);
+}
+
+void MqttPublishSimple(const char* subtopic, const char *v)
+{
+	const char * topic;
+
+	yield();
+
+	if (Settings.flag.mqtt_enabled)
+	{
+		topic = GetTopic(2, Settings.mqtt_topic, subtopic);
+
+		MqttClient.loop();
+		yield();
+
+		if (!MqttClient.publish(topic, v, false))
+			AddLog_PP(LOG_LEVEL_INFO, PSTR(D_LOG_RESULT " failed %s = %s"), topic, v);
+	}
+
+  	mqtt_msg.reset();
+}
+
+void MqttPublishSimple(const char* subtopic, int v)
+{
+	char buf[2 + 3 * sizeof(long)];
+	ltoa(v, buf, 10);
+	MqttPublishSimple(subtopic, buf);
+}
+
+void MqttPublishSimple(const char* subtopic, float v)
+{
+	char sv[20];
+
+	dtostrfd(v, 3, sv);
+	MqttPublishSimple(subtopic, sv);
 }
 
 void MqttPublishPowerState(byte device)
@@ -2026,10 +2079,9 @@ void PerformEverySecond()
 
   if (Settings.tele_period) {
     tele_period++;
-    if (tele_period == Settings.tele_period -1) {
+    if (tele_period == Settings.tele_period - 1) {
       XsnsCall(FUNC_XSNS_PREP, NULL);
-    }
-    if (tele_period >= Settings.tele_period) {
+    } else if (tele_period >= Settings.tele_period) {
       tele_period = 0;
 
 /*
@@ -2047,6 +2099,8 @@ void PerformEverySecond()
 */
 	  mqtt_msg.reset();
 
+	  /* XXX Teodor */
+	  XsnsCall(FUNC_XSNS_MQTT_SIMPLE, NULL);
 	  MqttPublishSimple_P(PSTR("time"), GetDateAndTime().c_str()); 
 	  if (!isnan(current_temperature))
 	  	MqttPublishSimple_P(PSTR("temperature"), current_temperature);

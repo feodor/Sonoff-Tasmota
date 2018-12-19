@@ -453,6 +453,39 @@ void BmpShow(boolean json)
   }
 }
 
+static void
+BmpMQTT() {
+	float v;
+	char	b[64];
+	BufferString	topic(b, sizeof(b));
+	
+	if (!bmp_type)
+		return;
+
+    v = BmpReadTemperature();
+	if (!isnan(v))
+	{
+		topic.sprintf_P(FPSTR("%s_temperature"), bmp_types);
+        MqttPublishSimple(topic.c_str(), v);
+		topic.reset();
+	}
+
+    v = BmpReadPressure();
+	if (!isnan(v) && v > 0)
+	{
+		topic.sprintf_P(FPSTR("%s_pressure"), bmp_types);
+        MqttPublishSimple(topic.c_str(), v);
+		topic.reset();
+	}
+
+    v = BmpReadHumidity();
+	if (!isnan(v))
+	{
+		topic.sprintf_P(FPSTR("%s_humidity"), bmp_types);
+        MqttPublishSimple(topic.c_str(), v);
+		topic.reset();
+	}
+}
 /*********************************************************************************************\
  * Interface
 \*********************************************************************************************/
@@ -473,6 +506,9 @@ boolean Xsns09(byte function, void *arg)
       case FUNC_XSNS_JSON_APPEND:
         BmpShow(1);
         break;
+	  case FUNC_XSNS_MQTT_SIMPLE:
+		BmpMQTT();
+		break;
 #ifdef USE_WEBSERVER
       case FUNC_XSNS_WEB:
         BmpShow(0);

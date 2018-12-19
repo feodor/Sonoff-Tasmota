@@ -240,10 +240,11 @@ void Ds18x20Type(uint8_t sensor)
 
 #define SHOW_JSON	0x01
 #define SHOW_WEB	0x02
+#define SHOW_MQTT	0x03
 void Ds18x20Show(byte type, void *arg)
 {
   char temperature[10];
-  char stemp[10];
+  char stemp[100];
   float sum = 0;
   byte  counter = 0;
 
@@ -259,7 +260,12 @@ void Ds18x20Show(byte type, void *arg)
 	  if (type) // SHOW_JSON or SHOW_WEB
         dtostrfd(t, Settings.flag.temperature_resolution, temperature);
 
-      if (type == SHOW_JSON) {
+	  if (type == SHOW_MQTT) {
+		  BufferString	topic(stemp, sizeof(stemp));
+
+		  topic.sprintf_P(FPSTR("%s_%d_temperature"), Ds18x20State.buffer, i+1);
+		  MqttPublishSimple(topic.c_str(), t);
+	  } else if (type == SHOW_JSON) {
         if (!dsxflg) {
 		  mqtt_msg += F(", \"DS18x20\":{");
           stemp[0] = '\0';
@@ -299,7 +305,6 @@ void Ds18x20Show(byte type, void *arg)
 \*********************************************************************************************/
 
 #define XSNS_05
-
 boolean Xsns05(byte function, void *arg)
 {
   boolean result = false;
@@ -315,6 +320,9 @@ boolean Xsns05(byte function, void *arg)
       case FUNC_XSNS_JSON_APPEND:
         Ds18x20Show(SHOW_JSON, NULL);
         break;
+	  case FUNC_XSNS_MQTT_SIMPLE:
+        Ds18x20Show(SHOW_MQTT, NULL);
+		break;
 #ifdef USE_WEBSERVER
       case FUNC_XSNS_WEB:
         Ds18x20Show(SHOW_WEB, NULL);
