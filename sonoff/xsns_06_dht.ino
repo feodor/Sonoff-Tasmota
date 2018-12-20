@@ -163,6 +163,9 @@ DhtGetTempHum(struct DhtDesc& dht, float &t, float &h)
 	if (dht.trycount >= DHT_MAX_RETRY)
 		return false;
 
+	t = NAN;
+	h = NAN;
+
 	switch (dht.type) {
 		case GPIO_DHT11:
 			h = dht.data[0];
@@ -185,7 +188,7 @@ DhtGetTempHum(struct DhtDesc& dht, float &t, float &h)
 			break;
 	}
 
-	return (!isnan(t) && !isnan(h));
+	return (!isnan(t) && !isnan(h) && h > 0);
 }
 
 boolean DhtSetup(byte pin, byte type)
@@ -220,7 +223,7 @@ DhtWatch()
 			break;
 		case DHT_IN_PROGRESS:
 			/* do not count loops if we are in progress state */
-			AddLog_P(LOG_LEVEL_INFO, PSTR("Seems, another loop is not finished yet"));
+			AddLog_P(LOG_LEVEL_INFO, PSTR(D_LOG_DHT "Seems, another loop is not finished yet"));
 			return;
 		case  DHT_QUIET:
 			if (loopcount >= DHT_MIN_INTERVAL/DHT_CONTROL_PERIOD) {

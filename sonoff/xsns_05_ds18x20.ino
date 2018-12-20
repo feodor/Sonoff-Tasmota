@@ -116,11 +116,11 @@ void Ds18x20Watch()
 	}
 	else if (Ds18x20State.state == Ds18x20_IN_PROGRESS)
 	{
-		AddLog_P(LOG_LEVEL_INFO, PSTR("Seems, another loop is not finished yet"));
+		AddLog_P(LOG_LEVEL_INFO, PSTR("DS18x20: Seems, another loop is not finished yet"));
 	}
 	else
 	{
-		AddLog_PP(LOG_LEVEL_INFO, PSTR("Unexpected state of Ds18x20: %d"),
+		AddLog_PP(LOG_LEVEL_INFO, PSTR("DS18x20: Unexpected state: %d"),
 				  Ds18x20State.state);
 	}
 }

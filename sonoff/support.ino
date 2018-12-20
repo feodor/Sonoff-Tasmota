@@ -1305,7 +1305,10 @@ void Syslog()
   if (PortUdp.beginPacket(syslog_host_addr, Settings.syslog_port)) {
 	BufferString	syslog_preamble(helper_buffer, sizeof(helper_buffer));
 
-	syslog_preamble = my_hostname;
+	syslog_preamble = '<';
+	syslog_preamble +=  (1 << 3) | 6; // LOG_USER | LOG_INFO
+	syslog_preamble += FPSTR("> ");
+	syslog_preamble += my_hostname;
 	syslog_preamble += FPSTR(" ESP-");
 	PortUdp.write(syslog_preamble.c_str(), syslog_preamble.length());
     PortUdp.write(log_data_string.c_str(), log_data_string.length());
