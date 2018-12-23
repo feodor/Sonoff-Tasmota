@@ -61,7 +61,24 @@
 #ifdef USE_SPI
   #include <SPI.h>                          // SPI support, TFT
 #endif  // USE_SPI
+#ifdef USE_LCD1602A
+  #include <LiquidCrystal.h>
+const int
+		RS = 4 /* D2 */,
+		EN = 0 /* D3 */,
+		d4 = 14 /* D5 */,
+		d5 = 12 /* D6 */,
+		d6 = 13 /* D7 */,
+		d7 = 15 /* D8 */;
+LiquidCrystal lcd(RS, EN, d4, d5, d6, d7);
+struct {
+    float DS18B20_temperature;
+    float DHT22_temperature;
+    float DHT22_humidity;
+} LcdDataExchange = {NAN, NAN, NAN};
 
+/********************************************************************************************/
+#endif
 // Structs
 #include "settings.h"
 
@@ -202,7 +219,6 @@ static uint8 mqtt_attempt_count = MAX_MQTT_ATTEMPT_COUNT;
 
 static char topic_buffer[TOPSZ];
 
-/********************************************************************************************/
 
 void GetMqttClient(char* output, const char* input, byte size)
 {
@@ -2015,6 +2031,46 @@ ActThermoControl(float current_temperature)
 }
 #endif //TEMPERATURE_CONTROL
 /********************************************************************************************/
+#ifdef USE_LCD1602A
+static void
+LCDPrint() {
+	BufferString prstr(helper_buffer, sizeof(helper_buffer));
+	char a[32], b[32];
+
+	lcd.clear();
+
+	if (isnan(LcdDataExchange.DS18B20_temperature))
+		prstr = FPSTR("Inside:    NaN C");
+	else {
+		dtostrfd(LcdDataExchange.DS18B20_temperature, 1, a);
+		prstr  = FPSTR("Inside:");
+		for(byte i = prstr.length() + strlen(a) + 1; i <= 15; i++)
+			prstr += ' ';
+		prstr += a;
+		prstr += 'C';
+	}
+	lcd.setCursor(0, 0);
+	lcd.print(prstr.c_str());
+
+	prstr.reset();
+	if (isnan(LcdDataExchange.DHT22_temperature) ||
+		isnan(LcdDataExchange.DHT22_humidity))
+		prstr = FPSTR("Out: NaN%  NaN C");
+	else {
+		dtostrfd(LcdDataExchange.DHT22_temperature, 1, a);
+		dtostrfd(LcdDataExchange.DHT22_humidity, 0, b);
+		prstr  = FPSTR("Out: ");
+		prstr += b;
+		prstr += '%';
+		for(byte i = prstr.length() + strlen(a) + 1; i <= 15; i++)
+			prstr += ' ';
+		prstr += a;
+		prstr += 'C';
+	}
+	lcd.setCursor(0, 1);
+	lcd.print(prstr.c_str());
+}
+#endif
 
 void PerformEverySecond()
 {
@@ -2101,14 +2157,19 @@ void PerformEverySecond()
 
 	  /* XXX Teodor */
 	  XsnsCall(FUNC_XSNS_MQTT_SIMPLE, NULL);
-	  MqttPublishSimple_P(PSTR("time"), GetDateAndTime().c_str()); 
+#ifdef USE_LCD1602A
+	  LCDPrint();
+#endif
+	  MqttPublishSimple_P(PSTR("time"), GetDateAndTime().c_str());
+#ifdef TEMPERATURE_CONTROL 
 	  if (!isnan(current_temperature))
 	  	MqttPublishSimple_P(PSTR("temperature"), current_temperature);
 	  if (RtcSettings.thermocontrol_duty_ratio >= 0.0 &&
 		  RtcSettings.thermocontrol_duty_ratio <= 1.0)
 	  	MqttPublishSimple_P(PSTR("ratio"), RtcSettings.thermocontrol_duty_ratio);
 	  MqttPublishSimple_P(PSTR("destination"), Settings.destination_temperature); 
-	  MqttPublishSimple_P(PSTR("delta"), Settings.delta_temperature); 
+	  MqttPublishSimple_P(PSTR("delta"), Settings.delta_temperature);
+#endif
 	  MqttPublishSimple_P(PSTR("freemem"), (int)ESP.getFreeHeap()); 
 	  MqttPublishSimple_P(PSTR("rssi"), WiFi.RSSI()); 
 	  MqttPublishSimple_P(PSTR("wanip"), WiFi.localIP().toString().c_str()); 
@@ -2963,6 +3024,14 @@ void setup()
 
   RtcInit();
 
+#ifdef USE_LCD1602A
+	lcd.begin(16, 2);
+
+	lcd.setCursor(0, 0);
+	lcd.print("hello,          ");
+	lcd.setCursor(0, 1);
+	lcd.print("          world!");
+#endif
   AddLog_PP(LOG_LEVEL_INFO, PSTR(D_PROJECT " %s %s (" D_CMND_TOPIC " %s, " D_FALLBACK " %s, " D_CMND_GROUPTOPIC " %s) " D_VERSION " %s"),
 			PROJECT, Settings.friendlyname[0], Settings.mqtt_topic, mqtt_client, Settings.mqtt_grptopic, version);
 }

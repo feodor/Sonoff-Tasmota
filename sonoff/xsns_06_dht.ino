@@ -285,6 +285,10 @@ void DhtShow(byte type)
 		dtostrfd(t, Settings.flag.temperature_resolution, temperature);
 		dtostrfd(h, Settings.flag.humidity_resolution, humidity);
 
+#ifdef USE_LCD1602A
+		LcdDataExchange.DHT22_temperature = t;
+		LcdDataExchange.DHT22_humidity = h;
+#endif
 		if (type == SHOW_MQTT) {
 			char	x[100];
 			BufferString	topic(x, sizeof(x));

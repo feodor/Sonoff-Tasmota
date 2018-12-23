@@ -474,6 +474,7 @@ BmpMQTT() {
 	if (!isnan(v) && v > 0)
 	{
 		topic.sprintf_P(FPSTR("%s_pressure"), bmp_types);
+		v *= 0.75006375541921; //mmHg
         MqttPublishSimple(topic.c_str(), v);
 		topic.reset();
 	}

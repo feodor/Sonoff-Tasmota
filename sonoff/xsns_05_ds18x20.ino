@@ -256,6 +256,9 @@ void Ds18x20Show(byte type, void *arg)
 	  sum += t;
 	  counter++;
 
+#ifdef USE_LCD1602A
+	  LcdDataExchange.DS18B20_temperature = t;
+#endif
       Ds18x20Type(i);
 	  if (type) // SHOW_JSON or SHOW_WEB
         dtostrfd(t, Settings.flag.temperature_resolution, temperature);
@@ -265,6 +268,7 @@ void Ds18x20Show(byte type, void *arg)
 
 		  topic.sprintf_P(FPSTR("%s_%d_temperature"), Ds18x20State.buffer, i+1);
 		  MqttPublishSimple(topic.c_str(), t);
+
 	  } else if (type == SHOW_JSON) {
         if (!dsxflg) {
 		  mqtt_msg += F(", \"DS18x20\":{");
