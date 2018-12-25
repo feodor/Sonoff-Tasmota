@@ -80,8 +80,6 @@ DhtEndReadDataSensor(struct DhtDesc& dht)
 {
 	uint32_t cycles[80];
 
-	memset(dht.data, 0, sizeof(dht.data));
-
 	noInterrupts();
 	digitalWrite(dht.pin, HIGH);
 	delayMicroseconds(40);
@@ -101,11 +99,14 @@ DhtEndReadDataSensor(struct DhtDesc& dht)
 	}
 	interrupts();
 
+	memset(dht.data, 0, sizeof(dht.data));
+
 	for (int i=0; i<40; ++i) {
 		uint32_t lowCycles	= cycles[2*i];
 		uint32_t highCycles = cycles[2*i+1];
 		if ((0 == lowCycles) || (0 == highCycles)) {
 			AddLog_P(LOG_LEVEL_DEBUG, PSTR(D_LOG_DHT D_TIMEOUT_WAITING_FOR " " D_PULSE));
+			dht.trycount = DHT_MAX_RETRY; //dht.data contains wrong data 
 			goto somethingwrong;
 		}
 		dht.data[i/8] <<= 1;
@@ -120,6 +121,7 @@ DhtEndReadDataSensor(struct DhtDesc& dht)
 
 	if (dht.data[4] != ((dht.data[0] + dht.data[1] + dht.data[2] + dht.data[3]) & 0xFF)) {
 		AddLog_P(LOG_LEVEL_DEBUG, PSTR(D_LOG_DHT D_CHECKSUM_FAILURE));
+		dht.trycount = DHT_MAX_RETRY; //dht.data contains wrong data 
 		goto somethingwrong;
 	}
 
