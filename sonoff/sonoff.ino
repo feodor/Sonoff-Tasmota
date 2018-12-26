@@ -66,10 +66,14 @@
 const int
 		RS = 4 /* D2 */,
 		EN = 0 /* D3 */,
-		d4 = 14 /* D5 */,
-		d5 = 12 /* D6 */,
-		d6 = 13 /* D7 */,
-		d7 = 15 /* D8 */;
+		d4 = 15 /* D8 */,
+		d5 = 13 /* D7 */,
+		d6 = 12 /* D6 */,
+		d7 = 14 /* D5 */;
+//		d4 = 14 /* D5 */,
+//		d5 = 12 /* D6 */,
+//		d6 = 13 /* D7 */,
+//		d7 = 15 /* D8 */;
 LiquidCrystal lcd(RS, EN, d4, d5, d6, d7);
 struct {
     float DS18B20_temperature;
