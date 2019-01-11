@@ -70,19 +70,41 @@ const int
 		d5 = 13 /* D7 */,
 		d6 = 12 /* D6 */,
 		d7 = 14 /* D5 */;
-//		d4 = 14 /* D5 */,
-//		d5 = 12 /* D6 */,
-//		d6 = 13 /* D7 */,
-//		d7 = 15 /* D8 */;
+
 LiquidCrystal lcd(RS, EN, d4, d5, d6, d7);
+
 struct {
     float DS18B20_temperature;
     float DHT22_temperature;
     float DHT22_humidity;
 } LcdDataExchange = {NAN, NAN, NAN};
-
-/********************************************************************************************/
 #endif
+#ifdef LEDPIN_BLINK
+#define LEDPIN_BLINK_1	(3)
+#define LEDPIN_BLINK_2	(1)
+
+typedef struct  BlinkDesc {
+	uint8	initstate[2];
+	uint8	period[2]; //blink per second 
+	uint8	state[2];
+} BlinkDesc;
+
+static uint8 LedBlinkPins[] = {LEDPIN_BLINK_1, LEDPIN_BLINK_2};
+
+static struct BlinkDesc BlinkLed[] = {
+	{ {1, 0}, { 1, 0 }, {0, 0} },
+	{ {0, 1}, { 0, 1 }, {0, 0} },
+	{ {1, 0}, {10, 0 }, {0, 0} },
+	{ {0, 1}, { 0, 10}, {0, 0} },
+	{ {1, 0}, {10, 10}, {0, 0} }
+};
+
+static BlinkDesc *BlinkLedCurrent = NULL;
+
+#define lenghtof(x)	(sizeof(x)/sizeof(x[0]))
+
+#endif
+/********************************************************************************************/
 // Structs
 #include "settings.h"
 
@@ -2139,6 +2161,33 @@ void PerformEverySecond()
 
   if (Settings.tele_period) {
     tele_period++;
+#ifdef LEDPIN_BLINK
+	if (tele_period >= Settings.tele_period - lenghtof(BlinkLed))
+	{
+		if (BlinkLedCurrent == NULL) {
+			BlinkLedCurrent = BlinkLed;
+		} else {
+			BlinkLedCurrent++;
+			if (BlinkLedCurrent - BlinkLed >= lenghtof(BlinkLed)) {
+				BlinkLedCurrent = NULL;
+				for(uint8 i=0; i<lenghtof(LedBlinkPins); i++)
+					digitalWrite(LedBlinkPins[i], LOW);
+			}
+		}
+
+		for(uint8 i=0; BlinkLedCurrent != NULL && i<lenghtof(LedBlinkPins); i++) {
+			if (BlinkLedCurrent->period[i] > 0) {
+				BlinkLedCurrent->state[i] = BlinkLedCurrent->initstate[i];
+				
+				if (BlinkLedCurrent->initstate[i] > 0)
+					digitalWrite(LedBlinkPins[i], HIGH);
+				else
+					digitalWrite(LedBlinkPins[i], LOW);
+			} else
+				digitalWrite(LedBlinkPins[i], LOW);
+		}
+	}
+#endif
     if (tele_period == Settings.tele_period - 1) {
       XsnsCall(FUNC_XSNS_PREP, NULL);
     } else if (tele_period >= Settings.tele_period) {
@@ -2432,6 +2481,21 @@ void StateLoop()
 \*-------------------------------------------------------------------------------------------*/
 
   if (!(state_loop_counter % (STATES/10))) {
+
+#ifdef LEDPIN_BLINK
+	if (BlinkLedCurrent != NULL)
+	{
+		for(uint8 i = 0; i<lenghtof(LedBlinkPins); i++)
+		{
+			if (BlinkLedCurrent->period[i] == 10)
+			{
+				digitalWrite(LedBlinkPins[i],
+							 BlinkLedCurrent->state[i] ? HIGH : LOW);
+				BlinkLedCurrent->state[i] = !BlinkLedCurrent->state[i];
+			}
+		}
+	}
+#endif
 
     if (mqtt_cmnd_publish) {
       mqtt_cmnd_publish--;  // Clean up
@@ -3035,6 +3099,12 @@ void setup()
 	lcd.print("hello,          ");
 	lcd.setCursor(0, 1);
 	lcd.print("          world!");
+#endif
+#ifdef LEDPIN_BLINK
+	for(uint8 i = 0; i<lenghtof(LedBlinkPins); i++) {
+		pinMode(LedBlinkPins[i], OUTPUT);
+		digitalWrite(LedBlinkPins[i], LOW);
+	}
 #endif
   AddLog_PP(LOG_LEVEL_INFO, PSTR(D_PROJECT " %s %s (" D_CMND_TOPIC " %s, " D_FALLBACK " %s, " D_CMND_GROUPTOPIC " %s) " D_VERSION " %s"),
 			PROJECT, Settings.friendlyname[0], Settings.mqtt_topic, mqtt_client, Settings.mqtt_grptopic, version);
