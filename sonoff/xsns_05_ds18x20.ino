@@ -128,10 +128,9 @@ void Ds18x20Watch()
 void Ds18x20Search()
 {
   uint8_t num_sensors=0;
-  uint8_t sensor = 0;
 
   ds->reset_search();
-  for (num_sensors = 0; num_sensors < DS18X20_MAX_SENSORS; num_sensors) {
+  for (num_sensors = 0; num_sensors < DS18X20_MAX_SENSORS; ) {
     if (!ds->search(Ds18x20State.address[num_sensors])) {
       ds->reset_search();
       break;
@@ -183,7 +182,6 @@ boolean Ds18x20Read(uint8_t sensor, float &t)
   byte data[12];
   int8_t sign = 1;
   float temp9 = 0.0;
-  uint8_t present = 0;
 
   t = NAN;
 

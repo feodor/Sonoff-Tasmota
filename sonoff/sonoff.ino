@@ -273,7 +273,7 @@ void GetMqttClient(char* output, const char* input, byte size)
 	  buffer = input;
 }
 
-static void *
+static void
 GetTopicInternal(BufferString& fulltopic, byte prefix, char *topic)
 {
   if (fallback_topic_flag) {
@@ -758,7 +758,6 @@ boolean MqttCommand(boolean grpflg, char *type, uint16_t index, char *dataBuf, u
   char command [CMDSZ];
   boolean serviced = true;
   char stemp1[TOPSZ];
-  char stemp2[10];
   char scommand[CMDSZ];
   uint16_t i;
 
@@ -978,9 +977,7 @@ void MqttDataCallback(char* topic, byte* data, unsigned int data_len)
   char command [CMDSZ];
   char stemp1[TOPSZ];
   char *p;
-  char *mtopic = NULL;
   char *type = NULL;
-  byte otype = 0;
   byte ptype = 0;
   byte jsflg = 0;
   byte lines = 1;
@@ -1169,7 +1166,7 @@ void MqttDataCallback(char* topic, byte* data, unsigned int data_len)
       }
       mqtt_msg.sprintf_P(FPSTR(S_JSON_COMMAND_SVALUE), command, (Settings.save_data > 1) ? stemp1 : GetStateText(Settings.save_data));
     }
-    else if ((CMND_SETOPTION == command_code) && ((index >= 0) && (index <= 17)) || ((index > 31) && (index <= P_MAX_PARAM8 +31))) {
+    else if (((CMND_SETOPTION == command_code) && ((index >= 0) && (index <= 17))) || ((index > 31) && (index <= P_MAX_PARAM8 +31))) {
       if (index <= 31) {
         ptype = 0;   // SetOption0 .. 31
       } else {
@@ -1369,7 +1366,7 @@ void MqttDataCallback(char* topic, byte* data, unsigned int data_len)
     else if (CMND_PWMRANGE == command_code) {
       if ((1 == payload) || ((payload > 254) && (payload < 1024))) {
         Settings.pwm_range = (1 == payload) ? PWM_RANGE : payload;
-        for (byte i; i < MAX_PWMS; i++) {
+        for (byte i = 0; i < MAX_PWMS; i++) {
           if (Settings.pwm_value[i] > Settings.pwm_range) {
             Settings.pwm_value[i] = Settings.pwm_range;
           }
@@ -1713,7 +1710,6 @@ boolean send_button_power(byte key, byte device, byte state)
 
   const char * stopic;
   char scommand[CMDSZ];
-  char stemp1[10];
   boolean result = false;
 
   char *key_topic = (key) ? Settings.switch_topic : Settings.button_topic;
@@ -3054,7 +3050,7 @@ void setup()
         SetDevicePower(power);
         break;
       case 2:  // All saved state toggle
-        power = Settings.power & ((1 << devices_present) -1) ^ POWER_MASK;
+        power = Settings.power & (((1 << devices_present) -1) ^ POWER_MASK);
         if (Settings.flag.save_state) {
           SetDevicePower(power);
         }

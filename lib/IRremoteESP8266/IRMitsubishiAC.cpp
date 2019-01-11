@@ -136,7 +136,7 @@ void IRMitsubishiAC::setMode(uint8_t mode) {
 
 // Set the requested vane operation mode of the a/c unit.
 void IRMitsubishiAC::setVane(uint8_t mode) {
-  mode = max(mode, B111);  // bounds check
+  mode = max(mode, (uint8_t)B111);  // bounds check
   mode |= B1000;
   mode <<= 3;
   remote_state[9] |= mode;

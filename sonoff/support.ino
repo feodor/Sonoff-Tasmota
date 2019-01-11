@@ -1209,7 +1209,6 @@ int GetCommandCode(char* destination, size_t destination_size, const char* needl
   int result = -1;
   const char* read = haystack;
   char* write = destination;
-  size_t maxcopy = (strlen(needle) > destination_size) ? destination_size : strlen(needle);
 
   while (true) {
     result++;

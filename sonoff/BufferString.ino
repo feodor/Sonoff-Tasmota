@@ -281,7 +281,7 @@ unsigned char BufferString::endsWith(const BufferString &s2) const {
 }
 
 unsigned char BufferString::endsWith(const char * suffix) const {
-	int l = suffix ? strlen(suffix) : 0;
+	unsigned int l = suffix ? strlen(suffix) : 0;
 
 	if(len < l || !buffer || !suffix)
 		return 0;
@@ -445,7 +445,7 @@ int BufferString::lastIndexOf(const __FlashStringHelper *str, unsigned int fromI
 void BufferString::replace(char find, char replace) {
 	if(!buffer)
 		return;
-	for(char *p = buffer; *p && p - buffer < len; p++) {
+	for(char *p = buffer; *p && p - buffer < (int)len; p++) {
 		if(*p == find)
 			*p = replace;
 	}
@@ -662,7 +662,7 @@ int BufferString::vsprintf_P(const __FlashStringHelper * formatP, va_list ap)
 	char	formatBuffer[128];
 	char * format = formatBuffer;
 
-	int  formatLength = strlen_P((PGM_P)formatP);
+	unsigned int  formatLength = strlen_P((PGM_P)formatP);
 	if (formatLength >= sizeof(formatBuffer))
 		format = new char[formatLength + 1];
 
