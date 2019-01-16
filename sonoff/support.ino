@@ -857,11 +857,11 @@ String GetBuildDateAndTime()
   char bdt[21];
   char *str;
   char *p;
-  char *smonth;
+  char *smonth = NULL;
   char mdate[] = __DATE__;  // "Mar  7 2017"
-  int month;
-  int day;
-  int year;
+  int month = 0;
+  int day = 0;
+  int year = 0;
 
 //  sscanf(mdate, "%s %d %d", bdt, &day, &year);  // Not implemented in 2.3.0 and probably too many code
   byte i = 0;

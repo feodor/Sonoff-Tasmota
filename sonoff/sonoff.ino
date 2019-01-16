@@ -101,9 +101,57 @@ static struct BlinkDesc BlinkLed[] = {
 
 static BlinkDesc *BlinkLedCurrent = NULL;
 
-#define lenghtof(x)	(sizeof(x)/sizeof(x[0]))
-
 #endif
+#ifdef USE_OLED
+#include <SH1106Wire.h>
+// D1 -> SDA (GPIO5)
+// D2 -> SCL (GPIO4)
+static SH1106Wire display(0x3c, 5, 4);
+
+#define NDATAT	(48)
+static struct {
+	float temperature;
+	float pressure;
+	float humidity;
+
+	float sumT;
+	int	  countT;
+
+	unsigned long firstT;
+	unsigned long lastT;
+
+	float   dataT[NDATAT];
+} ToDisplay = {
+	NAN, NAN, NAN,
+	0.0, 0, 0, 0,
+	{
+		NAN, NAN, NAN, NAN, NAN, NAN,
+		NAN, NAN, NAN, NAN, NAN, NAN,
+		NAN, NAN, NAN, NAN, NAN, NAN,
+		NAN, NAN, NAN, NAN, NAN, NAN,
+		NAN, NAN, NAN, NAN, NAN, NAN,
+		NAN, NAN, NAN, NAN, NAN, NAN,
+		NAN, NAN, NAN, NAN, NAN, NAN,
+		NAN, NAN, NAN, NAN, NAN, NAN
+	}
+};
+
+
+static struct {
+	const char *topic;
+	float *pvalue;
+} Topics [] = {
+	{"teodor/cabinet/tele/sonoff/DHT22_temperature", &ToDisplay.temperature},
+	{"teodor/pressure/bme_saloon", &ToDisplay.pressure},
+	{"teodor/cabinet/tele/sonoff/DHT22_humidity", &ToDisplay.humidity}
+	//{"zavety/envout/bmet", &ToDisplay.temperature},
+	//{"zavety/envout/bmep", &ToDisplay.pressure},
+	//{"zavety/envout/bmeh", &ToDisplay.humidity}
+};
+
+static bool have_to_oledshow = true;
+#endif
+#define lengthof(x)	((int)(sizeof(x)/sizeof(x[0])))
 /********************************************************************************************/
 // Structs
 #include "settings.h"
@@ -641,6 +689,10 @@ void MqttConnected()
 #ifdef USE_DOMOTICZ
     DomoticzMqttSubscribe();
 #endif  // USE_DOMOTICZ
+#ifdef USE_OLED
+	for(byte i=0; i<lengthof(Topics); i++)
+		MqttSubscribe(Topics[i].topic);
+#endif
   }
 
   if (mqtt_connection_flag) {
@@ -1000,6 +1052,26 @@ void MqttDataCallback(char* topic, byte* data, unsigned int data_len)
 
   AddLog_PP(LOG_LEVEL_DEBUG_MORE,  PSTR(D_LOG_RESULT D_RECEIVED_TOPIC " %s, " D_DATA_SIZE " %d, " D_DATA " %s"),
 			topicBuf, data_len, dataBuf);
+
+#ifdef USE_OLED
+  for(i=0; i<lengthof(Topics); i++) {
+	if (strcmp(topicBuf, Topics[i].topic) == 0)
+	{
+		char	*endptr;
+
+		*Topics[i].pvalue = strtof(dataBuf, &endptr);
+
+		if (endptr == dataBuf) {
+			AddLog_PP(LOG_LEVEL_INFO,  PSTR("could not parse '%s %s'"),
+					  topicBuf, dataBuf);
+			*Topics[i].pvalue = NAN;
+		}
+
+		have_to_oledshow = true;
+		return;
+	}
+  }
+#endif
 
 #ifdef USE_DOMOTICZ
   if (Settings.flag.mqtt_enabled) {
@@ -2054,7 +2126,7 @@ ActThermoControl(float current_temperature)
 #endif //TEMPERATURE_CONTROL
 /********************************************************************************************/
 #ifdef USE_LCD1602A
-static void
+void
 LCDPrint() {
 	BufferString prstr(helper_buffer, sizeof(helper_buffer));
 	char a[32], b[32];
@@ -2158,20 +2230,20 @@ void PerformEverySecond()
   if (Settings.tele_period) {
     tele_period++;
 #ifdef LEDPIN_BLINK
-	if (tele_period >= Settings.tele_period - lenghtof(BlinkLed))
+	if (tele_period >= Settings.tele_period - lengthof(BlinkLed))
 	{
 		if (BlinkLedCurrent == NULL) {
 			BlinkLedCurrent = BlinkLed;
 		} else {
 			BlinkLedCurrent++;
-			if (BlinkLedCurrent - BlinkLed >= lenghtof(BlinkLed)) {
+			if (BlinkLedCurrent - BlinkLed >= lengthof(BlinkLed)) {
 				BlinkLedCurrent = NULL;
-				for(uint8 i=0; i<lenghtof(LedBlinkPins); i++)
+				for(uint8 i=0; i<lengthof(LedBlinkPins); i++)
 					digitalWrite(LedBlinkPins[i], LOW);
 			}
 		}
 
-		for(uint8 i=0; BlinkLedCurrent != NULL && i<lenghtof(LedBlinkPins); i++) {
+		for(uint8 i=0; BlinkLedCurrent != NULL && i<lengthof(LedBlinkPins); i++) {
 			if (BlinkLedCurrent->period[i] > 0) {
 				BlinkLedCurrent->state[i] = BlinkLedCurrent->initstate[i];
 				
@@ -2453,6 +2525,180 @@ void SwitchHandler()
   }
 }
 
+#ifdef USE_OLED
+void
+OledShowGraph(int fromX, int toX) {
+#define GRAPHWIDTH	NDATAT
+#define GRAPHHEIGHT	(40)
+#define XNTICS	(5)
+#define YNTICS	(6)
+#define XTICLENGTH	(1)
+#define YTICLENGTH	(3)
+	int	leftBorder = fromX + (toX - fromX - GRAPHWIDTH) / 2;
+	int	rightBorder = leftBorder + GRAPHWIDTH;
+	int	upperBorder = 10 + 2;
+	int	lowerBorder = 64 - (10 + 2);
+	float	maxT = -1e6, minT = 1e6, pperT;
+	int		i, rT;
+	unsigned long	tic;
+	BufferString prntval(helper_buffer, sizeof(helper_buffer));
+
+	display.drawVerticalLine(toX, 0, 64);
+
+	display.setFont(ArialMT_Plain_10);
+
+	display.drawHorizontalLine(leftBorder, upperBorder, GRAPHWIDTH + 1); 
+	display.drawHorizontalLine(leftBorder, lowerBorder, GRAPHWIDTH + 1);
+	for(i=0; leftBorder > YTICLENGTH && i<YNTICS; i++)
+	{
+		display.drawHorizontalLine(leftBorder - YTICLENGTH - 1,
+								   upperBorder + i * GRAPHHEIGHT / (YNTICS - 1),
+								   YTICLENGTH); 
+		display.drawHorizontalLine(rightBorder + 2,
+								   upperBorder + i * GRAPHHEIGHT / (YNTICS - 1),
+								   YTICLENGTH);
+
+	}
+	for(i=0; i<XNTICS; i++)
+	{
+		display.drawVerticalLine(leftBorder + i * GRAPHWIDTH / (XNTICS - 1),
+								 upperBorder - 1,
+								 XTICLENGTH);
+		display.drawVerticalLine(leftBorder + i * GRAPHWIDTH / (XNTICS - 1),
+								 lowerBorder + 1,
+								 XTICLENGTH);
+	}
+	display.setTextAlignment(TEXT_ALIGN_LEFT);
+	display.drawString(0, lowerBorder, "1 day");
+	display.setTextAlignment(TEXT_ALIGN_RIGHT);
+
+	tic = millis();
+
+	if (ToDisplay.lastT < ToDisplay.firstT) {
+		// wraparound lastT was caused in one of previous loop 
+
+		if (tic < ToDisplay.firstT)
+			// millis() was wrapped too
+			ToDisplay.firstT = 0;
+	}
+
+	// check for both last and first to correct count around wraparound
+	if (tic > ToDisplay.lastT && ToDisplay.lastT >= ToDisplay.firstT) {
+		if (!(ToDisplay.firstT == 0 && ToDisplay.lastT == 0)) { //non-first call 
+
+			if (ToDisplay.countT > 0)
+				ToDisplay.dataT[lengthof(ToDisplay.dataT) - 1] =
+					ToDisplay.sumT / ((float)ToDisplay.countT);
+			else
+				ToDisplay.dataT[lengthof(ToDisplay.dataT) - 1] = NAN;
+
+			for(i=1; i<lengthof(ToDisplay.dataT); i++)
+				ToDisplay.dataT[i-1] = ToDisplay.dataT[i];
+		}
+
+		ToDisplay.sumT = 0;
+		ToDisplay.countT = 0;
+		ToDisplay.firstT = tic;
+		ToDisplay.lastT = ToDisplay.firstT + (24U * 3600U * 1000U) / NDATAT;
+	}
+
+	if (!isnan(ToDisplay.temperature)) {
+		ToDisplay.sumT += ToDisplay.temperature;
+		ToDisplay.countT++;
+	}
+
+	if (ToDisplay.countT > 0)
+		ToDisplay.dataT[lengthof(ToDisplay.dataT) - 1] =
+			ToDisplay.sumT / ((float)ToDisplay.countT);
+	else
+		ToDisplay.dataT[lengthof(ToDisplay.dataT) - 1] = NAN;
+
+	for(i=lengthof(ToDisplay.dataT) - 1; i>=0 && !isnan(ToDisplay.dataT[i]); i--) {
+		if (maxT < ToDisplay.dataT[i])
+			maxT = ToDisplay.dataT[i];
+		if (minT > ToDisplay.dataT[i])
+			minT = ToDisplay.dataT[i];
+	}
+
+	if (maxT <= minT)
+		return;
+
+	rT = floorf(minT);
+	while(rT != 0 && rT % 5)
+		rT--;
+	minT = rT;
+	prntval.reset();
+	prntval.sprintf_P(FPSTR("%dC"), rT);
+	display.drawString(rightBorder, lowerBorder, prntval.c_str());
+
+	rT = ceilf(maxT);
+	while(rT != 0 && rT % 5)
+		rT++;
+	maxT = rT;
+	prntval.reset();
+	prntval.sprintf_P(FPSTR("%dC"), rT);
+	display.drawString(rightBorder, 0, prntval.c_str());
+
+	pperT = ((float)GRAPHHEIGHT) / (maxT - minT);
+
+	for(i = lengthof(ToDisplay.dataT) - 2; i>=0 && !isnan(ToDisplay.dataT[i]); i--) {
+		int y0 = (int)round(lowerBorder - (ToDisplay.dataT[i+1] - minT) * pperT),
+			y1 = (int)round(lowerBorder - (ToDisplay.dataT[i+0] - minT) * pperT);
+
+		display.drawLine(
+			leftBorder + (i+1), y0,
+			leftBorder + (i+0), y1
+		);
+	}
+}
+
+void
+OledShow() {
+	char x[32];
+	int l;
+
+	display.clear();
+	display.setColor(WHITE);
+	display.fillRect(0,0, 128, 64);
+	display.setColor(BLACK);
+	display.setTextAlignment(TEXT_ALIGN_RIGHT);
+
+	if (!isnan(ToDisplay.temperature)) {
+		dtostrfd(ToDisplay.temperature, 0, x);
+		l = strlen(x);
+		x[l] = 'C';
+		x[l+1] = '\0';
+
+		display.setFont(ArialMT_Plain_24);
+		display.drawString(128, 0, x);
+	}
+
+	if (!isnan(ToDisplay.humidity)) {
+		dtostrfd(ToDisplay.humidity, 0, x);
+		l = strlen(x);
+		x[l] = '%';
+		x[l+1] = '\0';
+
+		display.setFont(ArialMT_Plain_16);
+		display.drawString(128, 27, x);
+	}
+
+	if (!isnan(ToDisplay.pressure)) {
+		dtostrfd(ToDisplay.pressure, 0, x);
+		l = strlen(x);
+		x[l + 0] = 'm';
+		x[l + 1] = 'm';
+		x[l + 2] = '\0';
+
+		display.setFont(ArialMT_Plain_16);
+		display.drawString(128, 46, x);
+	}
+
+	OledShowGraph(0, 70);
+
+	display.display();
+}
+#endif
 /*********************************************************************************************\
  * State loop
 \*********************************************************************************************/
@@ -2470,6 +2716,12 @@ void StateLoop()
   if (STATES == state_loop_counter) {
     PerformEverySecond();
     state_loop_counter = 0;
+#ifdef USE_OLED
+	if (have_to_oledshow) {
+		OledShow();
+		have_to_oledshow = false;
+	}
+#endif
   }
 
 /*-------------------------------------------------------------------------------------------*\
@@ -2481,7 +2733,7 @@ void StateLoop()
 #ifdef LEDPIN_BLINK
 	if (BlinkLedCurrent != NULL)
 	{
-		for(uint8 i = 0; i<lenghtof(LedBlinkPins); i++)
+		for(uint8 i = 0; i<lengthof(LedBlinkPins); i++)
 		{
 			if (BlinkLedCurrent->period[i] == 10)
 			{
@@ -3097,10 +3349,15 @@ void setup()
 	lcd.print("          world!");
 #endif
 #ifdef LEDPIN_BLINK
-	for(uint8 i = 0; i<lenghtof(LedBlinkPins); i++) {
+	for(uint8 i = 0; i<lengthof(LedBlinkPins); i++) {
 		pinMode(LedBlinkPins[i], OUTPUT);
 		digitalWrite(LedBlinkPins[i], LOW);
 	}
+#endif
+#ifdef USE_OLED
+	display.init();
+	display.flipScreenVertically();
+	have_to_oledshow = true;
 #endif
   AddLog_PP(LOG_LEVEL_INFO, PSTR(D_PROJECT " %s %s (" D_CMND_TOPIC " %s, " D_FALLBACK " %s, " D_CMND_GROUPTOPIC " %s) " D_VERSION " %s"),
 			PROJECT, Settings.friendlyname[0], Settings.mqtt_topic, mqtt_client, Settings.mqtt_grptopic, version);

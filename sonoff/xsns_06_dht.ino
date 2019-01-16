@@ -276,7 +276,9 @@ void DhtShow(byte type)
 	float t;
 	float h;
 
+#ifdef USE_DOMOTICZ
 	byte dsxflg = 0;
+#endif
 	for (byte i = 0; i < dht_sensors; i++) {
 		DhtDesc	&dht = Dhts[i];
 

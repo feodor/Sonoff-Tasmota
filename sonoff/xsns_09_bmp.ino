@@ -453,7 +453,7 @@ void BmpShow(boolean json)
   }
 }
 
-static void
+void
 BmpMQTT() {
 	float v;
 	char	b[64];

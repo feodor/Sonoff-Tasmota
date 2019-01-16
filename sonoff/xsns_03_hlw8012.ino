@@ -201,9 +201,9 @@ void HlwReadEnergy(byte option, float &total_energy, float &daily_energy, float 
   unsigned long cur_kWhtoday = hlw_kWhtoday;
   unsigned long hlw_len;
   unsigned long hlw_temp;
-  unsigned long hlw_w;
-  unsigned long hlw_u;
-  unsigned long hlw_i;
+  unsigned long hlw_w = 0;
+  unsigned long hlw_u = 0;
+  unsigned long hlw_i = 0;
   uint16_t hlw_period;
 
 //AddLog_PP(LOG_LEVEL_DEBUG, PSTR("HLW: CF %d, CF1U %d (%d), CF1I %d (%d)"),
@@ -332,7 +332,7 @@ void HlwMarginCheck(BufferString &msg)
   float current;
   float power_factor;
   uint16_t udaily_energy;
-  uint16_t uwatts;
+  uint16_t uwatts = 0;
   uint16_t uvoltage;
   uint16_t ucurrent;
   boolean flag;
