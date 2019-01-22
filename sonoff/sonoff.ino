@@ -143,10 +143,10 @@ static struct {
 } Topics [] = {
 	{"teodor/cabinet/tele/sonoff/DHT22_temperature", &ToDisplay.temperature},
 	{"teodor/pressure/bme_saloon", &ToDisplay.pressure},
-	{"teodor/cabinet/tele/sonoff/DHT22_humidity", &ToDisplay.humidity}
-	//{"zavety/envout/bmet", &ToDisplay.temperature},
-	//{"zavety/envout/bmep", &ToDisplay.pressure},
-	//{"zavety/envout/bmeh", &ToDisplay.humidity}
+	{"teodor/cabinet/tele/sonoff/DHT22_humidity", &ToDisplay.humidity},
+	{"zavety/envout/bmet", &ToDisplay.temperature},
+	{"zavety/envout/bmep", &ToDisplay.pressure},
+	{"zavety/envout/bmeh", &ToDisplay.humidity}
 };
 
 static bool have_to_oledshow = true;
@@ -2569,7 +2569,7 @@ OledShowGraph(int fromX, int toX) {
 								 XTICLENGTH);
 	}
 	display.setTextAlignment(TEXT_ALIGN_LEFT);
-	display.drawString(0, lowerBorder, "1 day");
+	display.drawString(0, lowerBorder, "-1d");
 	display.setTextAlignment(TEXT_ALIGN_RIGHT);
 
 	tic = millis();
@@ -2671,6 +2671,7 @@ OledShow() {
 
 		display.setFont(ArialMT_Plain_24);
 		display.drawString(128, 0, x);
+		display.drawCircle(112, 4, 2);
 	}
 
 	if (!isnan(ToDisplay.humidity)) {
