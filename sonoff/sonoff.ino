@@ -110,6 +110,8 @@ static SH1106Wire display(0x3c, 5, 4);
 
 #define NDATAT	(48)
 static struct {
+	uint32_t	crc;
+
 	float temperature;
 	float pressure;
 	float humidity;
@@ -119,11 +121,14 @@ static struct {
 
 	unsigned long firstT;
 	unsigned long lastT;
+	unsigned long tillLastT;
 
 	float   dataT[NDATAT];
 } ToDisplay = {
+	0,
 	NAN, NAN, NAN,
-	0.0, 0, 0, 0,
+	0.0, 0,
+	0, 0, 0,
 	{
 		NAN, NAN, NAN, NAN, NAN, NAN,
 		NAN, NAN, NAN, NAN, NAN, NAN,
@@ -2526,6 +2531,64 @@ void SwitchHandler()
 }
 
 #ifdef USE_OLED
+uint32_t calculateCRC32(const uint8_t *data, size_t length) {
+  uint32_t crc = 0xffffffff;
+  while (length--) {
+    uint8_t c = *data++;
+    for (uint32_t i = 0x80; i > 0; i >>= 1) {
+      bool bit = crc & 0x80000000;
+      if (c & i) {
+        bit = !bit;
+      }
+      crc <<= 1;
+      if (bit) {
+        crc ^= 0x04c11db7;
+      }
+    }
+  }
+  return crc;
+}
+
+void
+SaveToDisplay() {
+	uint32_t	crc;
+
+	ToDisplay.crc = 0;
+	crc = calculateCRC32((uint8_t*)&ToDisplay, sizeof(ToDisplay));
+	ToDisplay.crc = crc;
+
+	if (!ESP.rtcUserMemoryWrite(512 - sizeof(ToDisplay), (uint32_t*)&ToDisplay, sizeof(ToDisplay)))
+		AddLog_P(LOG_LEVEL_INFO, PSTR("ESP.rtcUserMemoryWrite(ToDisplay) fails"));
+}
+
+void
+LoadToDisplay() {
+	uint32_t	crc;
+	union {
+		uint32_t	crc;
+		uint8_t		data[sizeof(ToDisplay)];
+	} buf;
+
+	if (!ESP.rtcUserMemoryRead(512 - sizeof(ToDisplay), (uint32_t*)buf.data, sizeof(ToDisplay))) {
+		AddLog_P(LOG_LEVEL_INFO, PSTR("ESP.rtcUserMemoryRead(ToDisplay) fails"));
+		return;
+	}
+
+	crc = buf.crc;
+	buf.crc = 0;
+
+	if (calculateCRC32(buf.data, sizeof(ToDisplay)) != crc) {
+		AddLog_P(LOG_LEVEL_INFO, PSTR("Wrong CRC of ToDisplay"));
+		return;
+	}
+
+	memcpy(&ToDisplay, buf.data, sizeof(ToDisplay));
+
+	/* recount collecting period */
+	ToDisplay.firstT = millis();
+	ToDisplay.lastT = ToDisplay.firstT + ToDisplay.tillLastT;
+}
+
 void
 OledShowGraph(int fromX, int toX) {
 #define GRAPHWIDTH	NDATAT
@@ -2600,6 +2663,11 @@ OledShowGraph(int fromX, int toX) {
 		ToDisplay.countT = 0;
 		ToDisplay.firstT = tic;
 		ToDisplay.lastT = ToDisplay.firstT + (24U * 3600U * 1000U) / NDATAT;
+	} else {
+		if (ToDisplay.lastT < ToDisplay.firstT)
+			ToDisplay.tillLastT = ToDisplay.lastT; // wrapped
+		else
+			ToDisplay.tillLastT = ToDisplay.lastT - tic;
 	}
 
 	if (!isnan(ToDisplay.temperature)) {

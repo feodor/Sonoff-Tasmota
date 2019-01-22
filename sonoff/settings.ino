@@ -40,6 +40,10 @@ uint32_t GetRtcSettingsHash()
   return hash;
 }
 
+#ifdef USE_OLED
+bool skipSaveToDisplay = false;
+#endif
+
 void RtcSettingsSave()
 {
   if (GetRtcSettingsHash() != rtc_settings_hash) {
@@ -51,6 +55,11 @@ void RtcSettingsSave()
     AddLog_P(LOG_LEVEL_DEBUG, PSTR("Dump: Save"));
     RtcSettingsDump();
 #endif  // DEBUG_THEO
+#ifdef USE_OLED
+	if (skipSaveToDisplay == false)
+		SaveToDisplay();
+	skipSaveToDisplay = false;
+#endif
   }
 }
 
@@ -74,9 +83,15 @@ void RtcSettingsLoad()
   	RtcSettings.thermocontrol_duty_ratio = -1;	
   	RtcSettings.thermocontrol_down_time = 0;	
   	RtcSettings.thermocontrol_up_time = 0;
+#ifdef USE_OLED
+	skipSaveToDisplay = true;
+#endif
     RtcSettingsSave();
   }
   rtc_settings_hash = GetRtcSettingsHash();
+#ifdef USE_OLED
+	LoadToDisplay();
+#endif
 
 }
 
