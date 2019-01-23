@@ -141,20 +141,24 @@ static struct {
 	}
 };
 
+#define OLED_REDRAW_NOTHING	(0x00)
+#define OLED_REDRAW_TEMP	(0x01)
+#define OLED_REDRAW_OTHER	(0x02)
 
 static struct {
-	const char *topic;
-	float *pvalue;
+	const char	*topic;
+	float		*pvalue;
+	uint16_t	redraw;
 } Topics [] = {
-	{"teodor/cabinet/tele/sonoff/DHT22_temperature", &ToDisplay.temperature},
-	{"teodor/pressure/bme_saloon", &ToDisplay.pressure},
-	{"teodor/cabinet/tele/sonoff/DHT22_humidity", &ToDisplay.humidity},
-	{"zavety/envout/bmet", &ToDisplay.temperature},
-	{"zavety/envout/bmep", &ToDisplay.pressure},
-	{"zavety/envout/bmeh", &ToDisplay.humidity}
+	{"teodor/cabinet/tele/sonoff/DHT22_temperature", &ToDisplay.temperature, OLED_REDRAW_TEMP},
+	{"teodor/pressure/bme_saloon", &ToDisplay.pressure, OLED_REDRAW_OTHER},
+	{"teodor/cabinet/tele/sonoff/DHT22_humidity", &ToDisplay.humidity, OLED_REDRAW_OTHER},
+	{"zavety/envout/bmet", &ToDisplay.temperature, OLED_REDRAW_TEMP},
+	{"zavety/envout/bmep", &ToDisplay.pressure, OLED_REDRAW_OTHER},
+	{"zavety/envout/bmeh", &ToDisplay.humidity, OLED_REDRAW_OTHER}
 };
 
-static bool have_to_oledshow = true;
+static uint16_t haveToReDraw = OLED_REDRAW_NOTHING;
 #endif
 #define lengthof(x)	((int)(sizeof(x)/sizeof(x[0])))
 /********************************************************************************************/
@@ -1072,7 +1076,8 @@ void MqttDataCallback(char* topic, byte* data, unsigned int data_len)
 			*Topics[i].pvalue = NAN;
 		}
 
-		have_to_oledshow = true;
+		haveToReDraw |= Topics[i].redraw;
+
 		return;
 	}
   }
@@ -2645,10 +2650,10 @@ OledShowGraph(int fromX, int toX) {
 			ToDisplay.firstT = 0;
 	}
 
-	// check for both last and first to correct count around wraparound
-	if (tic > ToDisplay.lastT && ToDisplay.lastT >= ToDisplay.firstT) {
-		if (!(ToDisplay.firstT == 0 && ToDisplay.lastT == 0)) { //non-first call 
-
+	if (haveToReDraw & OLED_REDRAW_TEMP)
+	{
+		// check for both last and first to correct count around wraparound
+		if (tic > ToDisplay.lastT && ToDisplay.lastT >= ToDisplay.firstT) {
 			if (ToDisplay.countT > 0)
 				ToDisplay.dataT[lengthof(ToDisplay.dataT) - 1] =
 					ToDisplay.sumT / ((float)ToDisplay.countT);
@@ -2657,22 +2662,24 @@ OledShowGraph(int fromX, int toX) {
 
 			for(i=1; i<lengthof(ToDisplay.dataT); i++)
 				ToDisplay.dataT[i-1] = ToDisplay.dataT[i];
+
+			ToDisplay.sumT = 0;
+			ToDisplay.countT = 0;
+			ToDisplay.firstT = tic;
+			ToDisplay.lastT = ToDisplay.firstT + (24U * 3600U * 1000U) / NDATAT;
+
+			if (ToDisplay.lastT < ToDisplay.firstT)
+				ToDisplay.tillLastT = ToDisplay.lastT; // wrapped
+			else
+				ToDisplay.tillLastT = ToDisplay.lastT - tic;
 		}
 
-		ToDisplay.sumT = 0;
-		ToDisplay.countT = 0;
-		ToDisplay.firstT = tic;
-		ToDisplay.lastT = ToDisplay.firstT + (24U * 3600U * 1000U) / NDATAT;
-	} else {
-		if (ToDisplay.lastT < ToDisplay.firstT)
-			ToDisplay.tillLastT = ToDisplay.lastT; // wrapped
-		else
-			ToDisplay.tillLastT = ToDisplay.lastT - tic;
-	}
-
-	if (!isnan(ToDisplay.temperature)) {
-		ToDisplay.sumT += ToDisplay.temperature;
-		ToDisplay.countT++;
+		if (!isnan(ToDisplay.temperature)) {
+			ToDisplay.sumT += ToDisplay.temperature;
+			ToDisplay.countT++;
+			if (ToDisplay.countT == 1)
+				SaveToDisplay();
+		}
 	}
 
 	if (ToDisplay.countT > 0)
@@ -2786,9 +2793,9 @@ void StateLoop()
     PerformEverySecond();
     state_loop_counter = 0;
 #ifdef USE_OLED
-	if (have_to_oledshow) {
+	if (haveToReDraw != OLED_REDRAW_NOTHING) {
 		OledShow();
-		have_to_oledshow = false;
+		haveToReDraw = OLED_REDRAW_NOTHING;
 	}
 #endif
   }
@@ -3426,7 +3433,7 @@ void setup()
 #ifdef USE_OLED
 	display.init();
 	display.flipScreenVertically();
-	have_to_oledshow = true;
+	haveToReDraw = OLED_REDRAW_OTHER;
 #endif
   AddLog_PP(LOG_LEVEL_INFO, PSTR(D_PROJECT " %s %s (" D_CMND_TOPIC " %s, " D_FALLBACK " %s, " D_CMND_GROUPTOPIC " %s) " D_VERSION " %s"),
 			PROJECT, Settings.friendlyname[0], Settings.mqtt_topic, mqtt_client, Settings.mqtt_grptopic, version);
