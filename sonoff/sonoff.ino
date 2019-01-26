@@ -103,10 +103,28 @@ static BlinkDesc *BlinkLedCurrent = NULL;
 
 #endif
 #ifdef USE_OLED
+#ifdef USE_OLED_SPI
+#include "SSD1306Spi.h"
+// D2 -> CS  (GPIO4)
+// D3 -> RES (GPIO0)
+// D4 -> DC (GPIO2)
+// D5 -> CLK/SCL (GPIO14)
+// D7 -> MOSI/SDA (GPI13)
+static SSD1306Spi display(0, 2, 4);
+#else
 #include <SH1106Wire.h>
 // D1 -> SDA (GPIO5)
 // D2 -> SCL (GPIO4)
 static SH1106Wire display(0x3c, 5, 4);
+#endif
+
+#ifdef INVERSE_COLOR
+#define	BG_COLOR	BLACK
+#define FG_COLOR	WHITE
+#else
+#define	BG_COLOR	WHITE
+#define FG_COLOR	BLACK
+#endif
 
 #define NDATAT	(48)
 static struct {
@@ -2733,9 +2751,9 @@ OledShow() {
 	int l;
 
 	display.clear();
-	display.setColor(WHITE);
+	display.setColor(BG_COLOR);
 	display.fillRect(0,0, 128, 64);
-	display.setColor(BLACK);
+	display.setColor(FG_COLOR);
 	display.setTextAlignment(TEXT_ALIGN_RIGHT);
 
 	if (!isnan(ToDisplay.temperature)) {
