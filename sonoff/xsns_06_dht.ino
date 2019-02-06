@@ -187,6 +187,8 @@ DhtGetTempHum(struct DhtDesc& dht, float &t, float &h)
 				t *= -1;
 			}
 			t = ConvertTemp(t);
+			t -= 1.0; //correction 
+
 			break;
 	}
 
