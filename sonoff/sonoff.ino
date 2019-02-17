@@ -2835,6 +2835,10 @@ void StateLoop()
     PerformEverySecond();
     state_loop_counter = 0;
 #ifdef USE_OLED
+#ifdef NO_GRAPH
+	haveToReDraw = OLED_REDRAW_TEMP | OLED_REDRAW_OTHER;
+#endif
+
 	if (haveToReDraw != OLED_REDRAW_NOTHING) {
 		OledShow();
 		haveToReDraw = OLED_REDRAW_NOTHING;
