@@ -2612,6 +2612,7 @@ LoadToDisplay() {
 	ToDisplay.lastT = ToDisplay.firstT + ToDisplay.tillLastT;
 }
 
+#ifndef NO_GRAPH
 void
 OledShowGraph(int fromX, int toX) {
 #define GRAPHWIDTH	NDATAT
@@ -2744,6 +2745,7 @@ OledShowGraph(int fromX, int toX) {
 		);
 	}
 }
+#endif /* NO_GRAPH */
 
 void
 OledShow() {
@@ -2788,7 +2790,29 @@ OledShow() {
 		display.drawString(128, 46, x);
 	}
 
+#ifdef NO_GRAPH
+	display.drawVerticalLine(70, 0, 64);
+	display.setFont(ArialMT_Plain_24);
+
+	for (byte i = 0; i < Ds18x20Sensors(); i++) {
+		float t = Ds18x20Temprerature(i);
+
+		if (!isnan(t)) {
+			dtostrfd(t, 0, x);
+			l = strlen(x);
+			x[l] = 'C';
+			x[l+1] = '\0';
+		} else {
+			memcpy(x, "- C", 3+1);
+		}
+
+		display.drawString(69, 24*i, x);
+		display.drawCircle(53, 4 + 24*i, 2);
+	}
+
+#else
 	OledShowGraph(0, 70);
+#endif
 
 	display.display();
 }

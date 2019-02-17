@@ -159,6 +159,12 @@ uint8_t Ds18x20Sensors()
   return Ds18x20State.num;
 }
 
+float Ds18x20Temprerature(byte i) {
+	if (i < Ds18x20Sensors())
+      	return Ds18x20State.temperature[i];
+	return NAN;
+}
+
 String Ds18x20Addresses(uint8_t sensor)
 {
   char address[20];
