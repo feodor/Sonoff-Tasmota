@@ -104,17 +104,24 @@ static BlinkDesc *BlinkLedCurrent = NULL;
 #endif
 #ifdef USE_OLED
 #ifdef USE_OLED_SPI
-#include "SSD1306Spi.h"
+/***** MCU/Wemos with 2.42 OLED ******/
 // D2 -> CS  (GPIO4)
 // D3 -> RES (GPIO0)
 // D4 -> DC (GPIO2)
 // D5 -> CLK/SCL (GPIO14)
 // D7 -> MOSI/SDA (GPI13)
+#include "SSD1306Spi.h"
 static SSD1306Spi display(0, 2, 4);
+#elif defined(USE_OLED_SPI_SH1106)
+/***** MCU with 2.42 OLED ******/
+//the same layout as USE_OLED_SPI
+#include "SH1106Spi.h"
+static SH1106Spi display(0, 2, 4);
 #else
-#include <SH1106Wire.h>
+/***** MCU with builtin OLED 1.3 display ******/
 // D1 -> SDA (GPIO5)
 // D2 -> SCL (GPIO4)
+#include <SH1106Wire.h>
 static SH1106Wire display(0x3c, 5, 4);
 #endif
 
