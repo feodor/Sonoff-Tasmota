@@ -113,7 +113,8 @@ static BlinkDesc *BlinkLedCurrent = NULL;
 #include "SSD1306Spi.h"
 static SSD1306Spi display(0, 2, 4);
 #elif defined(USE_OLED_SPI_SH1106)
-/***** MCU with 2.42 OLED ******/
+/***** MCU with 1.3 OLED ******/
+//SDA - MOSI, SCL - CLK, D/C - D/C, RES - RES 
 //the same layout as USE_OLED_SPI
 #include "SH1106Spi.h"
 static SH1106Spi display(0, 2, 4);
@@ -2824,6 +2825,124 @@ OledShow() {
 	display.display();
 }
 #endif
+
+/***********************Light regulation with radar********************/
+#ifdef LIGHT_REGULATOR
+/* photosensor between + and resistor */
+#define PIN_PHOTO_SENSOR	A0
+
+#define PIN_LIGHT_LED	(6)	 //PWM!!
+#define PIR_PIN (8)
+
+#define DELAY	(20)
+#define WINDOW_SECONDS  (2)
+//time to keep light after human detection
+#define	LIGHT_DELAY	(4)
+#define	LIGHT_ONOFF_DELAY	(1)
+
+void LRSetup() {
+	pinMode(PIN_LIGHT_LED, OUTPUT);
+	analogWrite(PIN_LIGHT_LED, 0);
+
+	pinMode(PIN_PHOTO_SENSOR, INPUT);
+	pinMode(PIR_PIN, INPUT);
+}
+
+//moving average for WINDOW_SECONDS seconds, i.e. WINDOW_SECONDS/DELAY counts
+const float constAlpha = 2.0/(1.0 + 1000.0*WINDOW_SECONDS/DELAY);
+const float bottomLightLimit = 0.2;
+
+static void
+LRProcess() {
+	static float minLuminosity=1e6;
+	static float maxLuminosity=-1;
+	static float avgLuminosity=500; /* ad-hoc value depending on resitor */
+	static unsigned long	startTic=0;
+	static enum {
+		LIGHT_OFF,
+		LIGHT_IN_START,
+		LIGHT_ON,
+		LIGHT_IN_STOP
+	} state = LIGHT_OFF;
+	unsigned long tics;
+	float luminosity;
+	bool	isHumanPresent;
+	float v = -1.0;
+	uint8_t brightness = 0;
+
+	tics=millis();
+	luminosity= analogRead(PIN_PHOTO_SENSOR);
+	isHumanPresent = (digitalRead(PIR_PIN) == HIGH);
+
+	if (minLuminosity > luminosity)
+		minLuminosity = luminosity;
+	if (maxLuminosity < luminosity)
+		maxLuminosity = luminosity;
+
+	// calculate moving average
+	avgLuminosity = constAlpha * luminosity + (1 - constAlpha) * avgLuminosity;
+	v = constrain(
+		bottomLightLimit +
+			(1.0 - bottomLightLimit)*avgLuminosity/(maxLuminosity - minLuminosity),
+		bottomLightLimit, 1.0);
+
+rerun:
+	switch(state) {
+		case LIGHT_OFF:
+			if (isHumanPresent) {
+				startTic = tics;
+				state = LIGHT_IN_START;
+				// goto LIGHT_IN_START state
+			} else
+			break;
+
+		case LIGHT_IN_START:
+			if (tics - startTic < 1000 * LIGHT_ONOFF_DELAY) {
+				v *= ((float)(tics - startTic))/(1000.0*LIGHT_ONOFF_DELAY);
+				break;
+			} else {
+				state=LIGHT_ON;
+				startTic = tics;
+				//go to light on state
+			}
+		case LIGHT_ON:
+			if (isHumanPresent)
+				startTic = tics;
+
+			if (tics - startTic < 1000 * LIGHT_DELAY) {
+				break;
+			} else {
+				state=LIGHT_IN_STOP;
+				startTic = tics;
+				//go to light in stop state
+			}
+		case LIGHT_IN_STOP:
+			if (isHumanPresent) {
+				state = LIGHT_IN_START;
+				startTic = tics - (LIGHT_ONOFF_DELAY - (tics - startTic));
+				goto rerun;
+			}
+
+			if (tics - startTic < 1000 * LIGHT_ONOFF_DELAY)
+				v *= 1.0 - ((float)(tics - startTic))/(1000.0*LIGHT_ONOFF_DELAY);
+			else
+				state = LIGHT_OFF;
+	}
+
+	if (state !=	LIGHT_OFF) {
+		int val = v*255.0;
+
+		brightness = (uint8_t)((val*val)>>8);
+	}
+
+	analogWrite(PIN_LIGHT_LED, brightness);
+}
+/***********************End light regulation with radar********************/
+#else //LIGHT_REGULATOR
+#define LRSetup()
+#define LRProcess()
+#endif //LIGHT_REGULATOR
+
 /*********************************************************************************************\
  * State loop
 \*********************************************************************************************/
@@ -2858,7 +2977,7 @@ void StateLoop()
 \*-------------------------------------------------------------------------------------------*/
 
   if (!(state_loop_counter % (STATES/10))) {
-
+	  LRProcess();
 #ifdef LEDPIN_BLINK
 	if (BlinkLedCurrent != NULL)
 	{
@@ -2941,6 +3060,7 @@ void StateLoop()
 
   ButtonHandler();
   SwitchHandler();
+  LRProcess();
 
   if (light_type) {
     LightAnimate();
@@ -3352,11 +3472,13 @@ void GpioInit()
   hlw_flg = ((pin[GPIO_HLW_SEL] < 99) && (pin[GPIO_HLW_CF1] < 99) && (pin[GPIO_HLW_CF] < 99));
 
   XSnsInit();
+  LRSetup();
 }
 
 extern "C" {
 extern struct rst_info resetInfo;
 }
+
 
 void setup()
 {
