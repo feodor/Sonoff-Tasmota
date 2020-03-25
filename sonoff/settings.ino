@@ -535,6 +535,10 @@ void SettingsDefaultSet2()
   Settings.inverted_temperature_control = 0;
   Settings.delta_temperature = 2;
   Settings.destination_temperature = 18;
+
+  //LIGHT_REGULATOR
+  Settings.enable_light_regulator = 0;
+  Settings.lighton_delay = 4;
 }
 
 /********************************************************************************************/

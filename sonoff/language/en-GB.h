@@ -294,6 +294,9 @@
 #define D_DESTINATION "Destination"
 #define D_DELTA        "Delta"
 
+#define D_LIGHT_REGULATOR	"Light regulator"
+#define D_LIGHTON_DELAY	"Light-on delay"
+
 #define D_WIFI_PARAMETERS "Wifi parameters"
 #define D_SCAN_FOR_WIFI_NETWORKS "Scan for wifi networks"
 #define D_SCAN_DONE "Scan done"

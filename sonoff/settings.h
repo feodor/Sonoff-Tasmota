@@ -212,6 +212,9 @@ struct SYSCFG {
   float                        delta_temperature;              // 670
   float                        destination_temperature;                // 674
 
+  uint8_t		enable_light_regulator;
+  uint16_t		lighton_delay;
+
   uint8_t              enable_restart;
   uint8_t              restart_hour;
   uint8_t              restart_minute;

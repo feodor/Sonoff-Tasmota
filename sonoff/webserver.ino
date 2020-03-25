@@ -202,6 +202,12 @@ const char HTTP_FORM_MODULE[] PROGMEM =
   "<b>" D_DESTINATION ":&nbsp;</b><input style='width:5em;' id='z2' name='z2' value='{z2'><br/>"
   "<b>" D_DELTA ":&nbsp;</b><input style='width:5em;' id='z3' name='z3' value='{z3'></fieldset>"
 #endif
+#ifdef LIGHT_REGULATOR
+  "<br/><fieldset><legend><b>&nbsp;" D_LIGHT_REGULATOR "&nbsp;</b></legend>"
+  "<input style='width:10%;' id='x1' name='x1' type='checkbox'{x1><b>" D_ENABLED "</b><br/>"
+  "<b>" D_LIGHTON_DELAY ":&nbsp;</b><input style='width:5em;' id='x2' name='x2' value='{x2'><b>" D_SECONDS "</b>"
+  "</fieldset>"
+#endif
   "<br/><fieldset><legend><b>&nbsp;" D_RESTART "&nbsp;</b></legend>"
   "<input style='width:10%;' id='e1' name='e1' type='checkbox'{e1><b>" D_ENABLED "</b><br/>"
   "<br/><b>" D_TIME "&nbsp;(HH:MM):&nbsp;</b>"
@@ -693,6 +699,10 @@ void HandleModuleConfiguration()
   page.replace(F("{z2"), String(Settings.destination_temperature));
   page.replace(F("{z3"), String(Settings.delta_temperature));
 #endif
+#ifdef LIGHT_REGULATOR
+  page.replace(F("{x1"), (Settings.enable_light_regulator) ? F(" checked") : F(""));
+  page.replace(F("{x2"), String(Settings.lighton_delay));
+#endif
   page.replace(F("{e1"), (Settings.enable_restart) ? F(" checked") : F(""));
   page.replace(F("{e2"), String(Settings.restart_hour));
   page.replace(F("{e3"), String(Settings.restart_minute));
@@ -1107,6 +1117,11 @@ void HandleSaveSettings()
                Settings.delta_temperature = atof(WebServer->arg("z3").c_str());
        if (Settings.delta_temperature < 0)
                Settings.delta_temperature = 0;
+#endif
+#ifdef LIGHT_REGULATOR
+   Settings.enable_light_regulator =  WebServer->hasArg("x1");
+	if (strlen(WebServer->arg("x2").c_str()))
+	   Settings.lighton_delay = atoi(WebServer->arg("x2").c_str());
 #endif
        Settings.enable_restart = WebServer->hasArg("e1");
        if (strlen(WebServer->arg("e2").c_str()))

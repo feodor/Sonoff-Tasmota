@@ -2829,18 +2829,18 @@ OledShow() {
 /***********************Light regulation with radar********************/
 #ifdef LIGHT_REGULATOR
 /* photosensor between + and resistor */
-#define PIN_PHOTO_SENSOR	A0
+#define PIN_PHOTO_SENSOR	A0	//A0
 
-#define PIN_LIGHT_LED	(6)	 //PWM!!
-#define PIR_PIN (8)
+#define PIN_LIGHT_LED	(14)	//D5 PWM!!  
+#define PIR_PIN 		(12)	//D6
 
-#define DELAY	(20)
+#define LOOP_PERIOD	(20)
 #define WINDOW_SECONDS  (2)
-//time to keep light after human detection
-#define	LIGHT_DELAY	(4)
 #define	LIGHT_ONOFF_DELAY	(1)
 
 void LRSetup() {
+	if (!Settings.enable_light_regulator)
+		return;
 	pinMode(PIN_LIGHT_LED, OUTPUT);
 	analogWrite(PIN_LIGHT_LED, 0);
 
@@ -2848,8 +2848,8 @@ void LRSetup() {
 	pinMode(PIR_PIN, INPUT);
 }
 
-//moving average for WINDOW_SECONDS seconds, i.e. WINDOW_SECONDS/DELAY counts
-const float constAlpha = 2.0/(1.0 + 1000.0*WINDOW_SECONDS/DELAY);
+//moving average for WINDOW_SECONDS seconds, i.e. WINDOW_SECONDS/LOOP_PERIOD counts
+const float constAlpha = 2.0/(1.0 + 1000.0*WINDOW_SECONDS/LOOP_PERIOD);
 const float bottomLightLimit = 0.2;
 
 static void
@@ -2859,16 +2859,21 @@ LRProcess() {
 	static float avgLuminosity=500; /* ad-hoc value depending on resitor */
 	static unsigned long	startTic=0;
 	static enum {
+		LIGHT_BOOT,
+		LIGHT_IN_BOOT,
 		LIGHT_OFF,
 		LIGHT_IN_START,
 		LIGHT_ON,
 		LIGHT_IN_STOP
-	} state = LIGHT_OFF;
+	} state = LIGHT_BOOT;
 	unsigned long tics;
 	float luminosity;
 	bool	isHumanPresent;
 	float v = -1.0;
 	uint8_t brightness = 0;
+
+	if (!Settings.enable_light_regulator)
+		return;
 
 	tics=millis();
 	luminosity= analogRead(PIN_PHOTO_SENSOR);
@@ -2888,6 +2893,16 @@ LRProcess() {
 
 rerun:
 	switch(state) {
+		/* LIGHT_BOOT/LIGHT_IN_BOOT states protect from chaos immediately after
+		 * boot */
+		case LIGHT_BOOT:
+			startTic = tics;
+			state = LIGHT_IN_BOOT;
+			break;
+		case LIGHT_IN_BOOT:
+			if (tics > 2*1000*WINDOW_SECONDS)
+				state = LIGHT_OFF;
+			break;
 		case LIGHT_OFF:
 			if (isHumanPresent) {
 				startTic = tics;
@@ -2909,7 +2924,7 @@ rerun:
 			if (isHumanPresent)
 				startTic = tics;
 
-			if (tics - startTic < 1000 * LIGHT_DELAY) {
+			if (tics - startTic < ((unsigned long)1000) * (unsigned long)Settings.lighton_delay) {
 				break;
 			} else {
 				state=LIGHT_IN_STOP;
@@ -2929,7 +2944,7 @@ rerun:
 				state = LIGHT_OFF;
 	}
 
-	if (state !=	LIGHT_OFF) {
+	if (!(state == LIGHT_BOOT || state == LIGHT_IN_BOOT || state == LIGHT_OFF)) {
 		int val = v*255.0;
 
 		brightness = (uint8_t)((val*val)>>8);
