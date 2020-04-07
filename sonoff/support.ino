@@ -1273,6 +1273,7 @@ boolean Xsns02(byte function, void *arg)
 //        break;
 //      case FUNC_XSNS_PREP:
 //        break;
+#ifdef USE_ADC_VCC
       case FUNC_XSNS_JSON_APPEND:
         AdcShow(1, arg);
         break;
@@ -1281,6 +1282,7 @@ boolean Xsns02(byte function, void *arg)
         AdcShow(0, arg);
         break;
 #endif  // USE_WEBSERVER
+#endif
     }
   }
   return result;

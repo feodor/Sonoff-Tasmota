@@ -205,7 +205,11 @@ const char HTTP_FORM_MODULE[] PROGMEM =
 #ifdef LIGHT_REGULATOR
   "<br/><fieldset><legend><b>&nbsp;" D_LIGHT_REGULATOR "&nbsp;</b></legend>"
   "<input style='width:10%;' id='x1' name='x1' type='checkbox'{x1><b>" D_ENABLED "</b><br/>"
-  "<b>" D_LIGHTON_DELAY ":&nbsp;</b><input style='width:5em;' id='x2' name='x2' value='{x2'><b>" D_SECONDS "</b>"
+  "<input style='width:10%;' id='x3' name='x3' type='checkbox'{x3><b> PIR #1</b>"
+  "<input style='width:10%;' id='x4' name='x4' type='checkbox'{x4><b> PIR  #2</b><br/>"
+  "<b>" D_LIGHTON_DELAY ":&nbsp;</b><input style='width:5em;' id='x2' name='x2' value='{x2'><b>" D_SECONDS "</b></br>"
+  "<b>" D_MIN_LIGHT_LEVEL ":&nbsp;</b><input style='width:5em;' id='x5' name='x5' value='{x5'><b> % </b></br>"
+  "<b>" D_MAX_LIGHT_LEVEL ":&nbsp;</b><input style='width:5em;' id='x6' name='x6' value='{x6'><b> % </b>"
   "</fieldset>"
 #endif
   "<br/><fieldset><legend><b>&nbsp;" D_RESTART "&nbsp;</b></legend>"
@@ -502,6 +506,14 @@ void HandleRoot()
       }
       page += F("</tr></table>");
     }
+#ifdef LIGHT_REGULATOR
+	page += FPSTR(HTTP_TABLE100);
+	line.reset();
+	line.sprintf_P(F("<tr><td style='width:100'><button onclick='la(\"?lr=1\");'>"
+					 D_RESET_LIGHT_REGULATOR "</button></td></tr></table>"));
+	page += line.c_str();
+
+#endif
     if (SONOFF_BRIDGE == Settings.module) {
       page += FPSTR(HTTP_TABLE100);
       page += F("<tr>");
@@ -552,6 +564,9 @@ void HandleAjaxStatusRefresh()
     ExecuteCommand((char*)svalue.c_str());
   }
 
+  if (WebServer->hasArg("lr"))
+		initLightRegulatorState();		
+
   String page = "";
   mqtt_msg.reset();
   XsnsCall(FUNC_XSNS_WEB, &mqtt_msg);
@@ -560,6 +575,22 @@ void HandleAjaxStatusRefresh()
     page += mqtt_msg.c_str();
     page += F("</table>");
   }
+#ifdef LIGHT_REGULATOR
+    page += FPSTR(HTTP_TABLE100);
+	svalue.reset();
+	svalue.sprintf_P(F("<tr><td style='width:100{t}bold;font-size:16px'>" D_LUMINOSITY " %d/%d/%d"),
+					 (int)lrstate.minLuminosity,
+					 (int)lrstate.avgLuminosity,
+					 (int)lrstate.maxLuminosity);
+	page += svalue.c_str();
+	page += F("</div></td></tr>");
+	svalue.reset();
+	svalue.sprintf_P(F("<tr><td style='width:100{t}bold;font-size:16px'>" D_BRIGHTNESS " %d/255"),
+					 (int)lrstate.brightness);
+	page += svalue.c_str();
+	page += F("</div></td></tr>");
+	page += F("</table>");
+#endif
   if (devices_present) {
     page += FPSTR(HTTP_TABLE100);
     page += F("<tr>");
@@ -702,6 +733,10 @@ void HandleModuleConfiguration()
 #ifdef LIGHT_REGULATOR
   page.replace(F("{x1"), (Settings.enable_light_regulator) ? F(" checked") : F(""));
   page.replace(F("{x2"), String(Settings.lighton_delay));
+  page.replace(F("{x3"), (Settings.use_pir1) ? F(" checked") : F(""));
+  page.replace(F("{x4"), (Settings.use_pir2) ? F(" checked") : F(""));
+  page.replace(F("{x5"), String(Settings.min_light_level));
+  page.replace(F("{x6"), String(Settings.max_light_level));
 #endif
   page.replace(F("{e1"), (Settings.enable_restart) ? F(" checked") : F(""));
   page.replace(F("{e2"), String(Settings.restart_hour));
@@ -1119,9 +1154,17 @@ void HandleSaveSettings()
                Settings.delta_temperature = 0;
 #endif
 #ifdef LIGHT_REGULATOR
-   Settings.enable_light_regulator =  WebServer->hasArg("x1");
+	Settings.enable_light_regulator =  WebServer->hasArg("x1");
 	if (strlen(WebServer->arg("x2").c_str()))
 	   Settings.lighton_delay = atoi(WebServer->arg("x2").c_str());
+	Settings.use_pir1 =  WebServer->hasArg("x3");
+	Settings.use_pir2 =  WebServer->hasArg("x4");
+	if (strlen(WebServer->arg("x5").c_str()))
+	   Settings.min_light_level = atoi(WebServer->arg("x5").c_str());
+	if (strlen(WebServer->arg("x6").c_str()))
+	   Settings.max_light_level = atoi(WebServer->arg("x6").c_str());
+	if (Settings.min_light_level > Settings.max_light_level)
+		Settings.max_light_level = Settings.min_light_level;
 #endif
        Settings.enable_restart = WebServer->hasArg("e1");
        if (strlen(WebServer->arg("e2").c_str()))

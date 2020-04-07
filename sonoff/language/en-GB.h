@@ -296,6 +296,12 @@
 
 #define D_LIGHT_REGULATOR	"Light regulator"
 #define D_LIGHTON_DELAY	"Light-on delay"
+#define D_MIN_LIGHT_LEVEL	"Min light level"
+#define D_MAX_LIGHT_LEVEL	"Max light level"
+#define D_RESET_LIGHT_REGULATOR "Reset light control"
+#define D_LR	"LiCTRL"
+#define D_LUMINOSITY	"Luminosity"
+#define D_BRIGHTNESS	"Brightness"
 
 #define D_WIFI_PARAMETERS "Wifi parameters"
 #define D_SCAN_FOR_WIFI_NETWORKS "Scan for wifi networks"

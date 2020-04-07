@@ -539,6 +539,10 @@ void SettingsDefaultSet2()
   //LIGHT_REGULATOR
   Settings.enable_light_regulator = 0;
   Settings.lighton_delay = 4;
+  Settings.min_light_level = 20;
+  Settings.max_light_level = 100;
+  Settings.use_pir1 = true;
+  Settings.use_pir2 = true;
 }
 
 /********************************************************************************************/

@@ -214,6 +214,10 @@ struct SYSCFG {
 
   uint8_t		enable_light_regulator;
   uint16_t		lighton_delay;
+  uint8_t		use_pir1;
+  uint8_t		use_pir2;
+  uint8_t		min_light_level;
+  uint8_t		max_light_level;
 
   uint8_t              enable_restart;
   uint8_t              restart_hour;

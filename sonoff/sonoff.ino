@@ -186,6 +186,14 @@ static struct {
 
 static uint16_t haveToReDraw = OLED_REDRAW_NOTHING;
 #endif
+typedef struct LightRegulatorState {
+	uint32_t	crc;
+	float		minLuminosity;
+	float		maxLuminosity;
+	float		avgLuminosity; /* ad-hoc value depending on resitor */
+	uint8_t 	brightness;
+} LightRegulatorState;
+
 #define lengthof(x)	((int)(sizeof(x)/sizeof(x[0])))
 /********************************************************************************************/
 // Structs
@@ -2327,12 +2335,17 @@ void PerformEverySecond()
 	  MqttPublishSimple_P(PSTR("destination"), Settings.destination_temperature); 
 	  MqttPublishSimple_P(PSTR("delta"), Settings.delta_temperature);
 #endif
+#ifdef LIGHT_REGULATOR
+	  LRProcess(true);
+#endif
 	  MqttPublishSimple_P(PSTR("freemem"), (int)ESP.getFreeHeap()); 
 	  MqttPublishSimple_P(PSTR("rssi"), WiFi.RSSI()); 
 	  MqttPublishSimple_P(PSTR("wanip"), WiFi.localIP().toString().c_str()); 
 	  MqttPublishSimple_P(PSTR("uptime"), uptime); 
 	  MqttPublishSimple_P(PSTR("poweron"), bitRead(power, 0 /* device - 1 */ ) ? 1 : 0); 
-	  MqttPublishSimple_P(PSTR("vcc"), (float)ESP.getVcc()/1000); 
+#ifdef USE_ADC_VCC
+	  MqttPublishSimple_P(PSTR("vcc"), (float)ESP.getVcc()/1000);
+#endif
 
       XsnsCall(FUNC_XSNS_MQTT_SHOW, NULL);
     }
@@ -2561,7 +2574,6 @@ void SwitchHandler()
   }
 }
 
-#ifdef USE_OLED
 uint32_t calculateCRC32(const uint8_t *data, size_t length) {
   uint32_t crc = 0xffffffff;
   while (length--) {
@@ -2580,6 +2592,7 @@ uint32_t calculateCRC32(const uint8_t *data, size_t length) {
   return crc;
 }
 
+#ifdef USE_OLED
 void
 SaveToDisplay() {
 	uint32_t	crc;
@@ -2831,33 +2844,95 @@ OledShow() {
 /* photosensor between + and resistor */
 #define PIN_PHOTO_SENSOR	A0	//A0
 
-#define PIN_LIGHT_LED	(14)	//D5 PWM!!  
-#define PIR_PIN 		(12)	//D6
+#define PIN_LIGHT_LED	(4)	//D2 PWM!!  
+#define PIR_PIN1 		(16)	//D0
+#define PIR_PIN2 		(5)	//D1
+#define PIR_LED1		(13) //d7 yellow
+#define PIR_LED2		(12) //d6
+//      DS18B20			(14) //d5
 
 #define LOOP_PERIOD	(20)
 #define WINDOW_SECONDS  (2)
 #define	LIGHT_ONOFF_DELAY	(1)
+
+static  LightRegulatorState lrstate = {0, -1, -1, -1};
+
+void
+SaveLightRegulatorState() {
+	uint32_t	crc;
+
+	lrstate.crc = 0;
+	crc = calculateCRC32((uint8_t*)&lrstate, sizeof(lrstate));
+	lrstate.crc = crc;
+
+	if (!ESP.rtcUserMemoryWrite(512 - sizeof(lrstate), (uint32_t*)&lrstate, sizeof(lrstate)))
+		AddLog_P(LOG_LEVEL_INFO, PSTR("ESP.rtcUserMemoryWrite(lrstate) fails"));
+
+	 AddLog_P(LOG_LEVEL_INFO, PSTR(D_LR " saveLightRegulatorState"));
+}
+
+void
+initLightRegulatorState() {
+	lrstate.minLuminosity = 1e6;	
+	lrstate.maxLuminosity = -1;	
+	lrstate.avgLuminosity = 500;
+
+	AddLog_P(LOG_LEVEL_INFO, PSTR(D_LR " initLightRegulatorState"));
+	SaveLightRegulatorState();
+}
+
+void
+LoadLightRegulatorState() {
+	uint32_t	crc;
+	union {
+		uint32_t	crc;
+		uint8_t		data[sizeof(lrstate)];
+	} buf;
+
+	if (!ESP.rtcUserMemoryRead(512 - sizeof(lrstate), (uint32_t*)buf.data, sizeof(lrstate))) {
+		AddLog_P(LOG_LEVEL_INFO, PSTR("ESP.rtcUserMemoryRead(lrstate fails"));
+		return;
+	}
+
+	crc = buf.crc;
+	buf.crc = 0;
+
+	if (calculateCRC32(buf.data, sizeof(lrstate)) != crc) {
+		AddLog_P(LOG_LEVEL_INFO, PSTR("Wrong CRC of lrstate"));
+		initLightRegulatorState();
+		return;
+	}
+
+	AddLog_P(LOG_LEVEL_INFO, PSTR(D_LR " loadLightRegulatorState"));
+	memcpy(&lrstate, buf.data, sizeof(lrstate));
+}
 
 void LRSetup() {
 	if (!Settings.enable_light_regulator)
 		return;
 	pinMode(PIN_LIGHT_LED, OUTPUT);
 	analogWrite(PIN_LIGHT_LED, 0);
+	pinMode(PIR_LED1, OUTPUT);
+	analogWrite(PIR_LED1, 0);
+	pinMode(PIR_LED2, OUTPUT);
+	analogWrite(PIR_LED2, 0);
 
 	pinMode(PIN_PHOTO_SENSOR, INPUT);
-	pinMode(PIR_PIN, INPUT);
+	pinMode(PIR_PIN1, INPUT);
+	pinMode(PIR_PIN2, INPUT);
 }
 
 //moving average for WINDOW_SECONDS seconds, i.e. WINDOW_SECONDS/LOOP_PERIOD counts
 const float constAlpha = 2.0/(1.0 + 1000.0*WINDOW_SECONDS/LOOP_PERIOD);
-const float bottomLightLimit = 0.2;
+
+#ifdef USE_ADC_VCC
+#error Turm off USE_ADC_VCC!
+#endif
 
 static void
-LRProcess() {
-	static float minLuminosity=1e6;
-	static float maxLuminosity=-1;
-	static float avgLuminosity=500; /* ad-hoc value depending on resitor */
+LRProcess(bool mqtt) {
 	static unsigned long	startTic=0;
+	static float lightOn=0, lightOff=0; 
 	static enum {
 		LIGHT_BOOT,
 		LIGHT_IN_BOOT,
@@ -2868,28 +2943,58 @@ LRProcess() {
 	} state = LIGHT_BOOT;
 	unsigned long tics;
 	float luminosity;
-	bool	isHumanPresent;
+	bool	isHumanPresent = false;
 	float v = -1.0;
-	uint8_t brightness = 0;
+	float	bottomLightLimit = ((float)Settings.min_light_level) / 100.0;
+	float	upperLightLimit = ((float)Settings.max_light_level) / 100.0;
 
 	if (!Settings.enable_light_regulator)
 		return;
 
+	if (lrstate.maxLuminosity < 0) {
+		LoadLightRegulatorState();
+		state = LIGHT_BOOT;
+		startTic = 0;
+		lightOn = lightOff = 0;
+	}
+
 	tics=millis();
 	luminosity= analogRead(PIN_PHOTO_SENSOR);
-	isHumanPresent = (digitalRead(PIR_PIN) == HIGH);
+	if (Settings.use_pir1 && digitalRead(PIR_PIN1) == HIGH) {
+		isHumanPresent = true;
+		analogWrite(PIR_LED1, 255);
+	} else
+		analogWrite(PIR_LED1, 0);
+	if (Settings.use_pir2 && digitalRead(PIR_PIN2) == HIGH) {
+		isHumanPresent = true;
+		analogWrite(PIR_LED2, 255);
+	} else
+		analogWrite(PIR_LED2, 0);
 
-	if (minLuminosity > luminosity)
-		minLuminosity = luminosity;
-	if (maxLuminosity < luminosity)
-		maxLuminosity = luminosity;
+	if (lrstate.minLuminosity > luminosity)
+		lrstate.minLuminosity = luminosity;
+	if (lrstate.maxLuminosity < luminosity)
+		lrstate.maxLuminosity = luminosity;
 
 	// calculate moving average
-	avgLuminosity = constAlpha * luminosity + (1 - constAlpha) * avgLuminosity;
+	lrstate.avgLuminosity = constAlpha * luminosity + (1 - constAlpha) * lrstate.avgLuminosity;
 	v = constrain(
 		bottomLightLimit +
-			(1.0 - bottomLightLimit)*avgLuminosity/(maxLuminosity - minLuminosity),
-		bottomLightLimit, 1.0);
+			(upperLightLimit - bottomLightLimit) *
+				(lrstate.avgLuminosity - lrstate.minLuminosity)/(lrstate.maxLuminosity - lrstate.minLuminosity),
+		bottomLightLimit, upperLightLimit);
+
+	if (mqtt) {
+		MqttPublishSimple_P(PSTR("lr_state"), state);
+		MqttPublishSimple_P(PSTR("minLuminosity"), (int)lrstate.minLuminosity);
+		MqttPublishSimple_P(PSTR("maxLuminosity"), (int)lrstate.maxLuminosity);
+		MqttPublishSimple_P(PSTR("avgLuminosity"), (int)lrstate.avgLuminosity);
+		MqttPublishSimple_P(PSTR("linear_brightness"), v);
+		if (lightOff + lightOn > 0)
+			MqttPublishSimple_P(PSTR("ratioLightOn"), 100*lightOn/(lightOn + lightOff));
+		SaveLightRegulatorState();
+		return;
+	}
 
 rerun:
 	switch(state) {
@@ -2900,8 +3005,18 @@ rerun:
 			state = LIGHT_IN_BOOT;
 			break;
 		case LIGHT_IN_BOOT:
-			if (tics > 2*1000*WINDOW_SECONDS)
+			if (tics - startTic > 2*1000*WINDOW_SECONDS) {
 				state = LIGHT_OFF;
+				analogWrite(PIR_LED1, 0);
+				analogWrite(PIR_LED2, 0);
+			} else if ((tics / 250) % 2) {
+				// blinking on start
+				analogWrite(PIR_LED1, 0);
+				analogWrite(PIR_LED2, 255);
+			} else {
+				analogWrite(PIR_LED2, 0);
+				analogWrite(PIR_LED1, 255);
+			}
 			break;
 		case LIGHT_OFF:
 			if (isHumanPresent) {
@@ -2947,15 +3062,22 @@ rerun:
 	if (!(state == LIGHT_BOOT || state == LIGHT_IN_BOOT || state == LIGHT_OFF)) {
 		int val = v*255.0;
 
-		brightness = (uint8_t)((val*val)>>8);
+		lrstate.brightness = (uint8_t)((val*val)>>8);
+	} else {
+		lrstate.brightness = 0;
 	}
 
-	analogWrite(PIN_LIGHT_LED, brightness);
+	if (lrstate.brightness == 0)
+		lightOff++;
+	else
+		lightOn++;
+
+	analogWrite(PIN_LIGHT_LED, lrstate.brightness);
 }
 /***********************End light regulation with radar********************/
 #else //LIGHT_REGULATOR
 #define LRSetup()
-#define LRProcess()
+#define LRProcess(m)
 #endif //LIGHT_REGULATOR
 
 /*********************************************************************************************\
@@ -2992,7 +3114,6 @@ void StateLoop()
 \*-------------------------------------------------------------------------------------------*/
 
   if (!(state_loop_counter % (STATES/10))) {
-	  LRProcess();
 #ifdef LEDPIN_BLINK
 	if (BlinkLedCurrent != NULL)
 	{
@@ -3075,7 +3196,7 @@ void StateLoop()
 
   ButtonHandler();
   SwitchHandler();
-  LRProcess();
+  LRProcess(false);
 
   if (light_type) {
     LightAnimate();
