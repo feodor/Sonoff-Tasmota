@@ -2971,13 +2971,15 @@ LRProcess(bool mqtt) {
 	} else
 		analogWrite(PIR_LED2, 0);
 
-	if (lrstate.minLuminosity > luminosity)
-		lrstate.minLuminosity = luminosity;
-	if (lrstate.maxLuminosity < luminosity)
-		lrstate.maxLuminosity = luminosity;
+	lrstate.avgLuminosity = constAlpha * luminosity + (1 - constAlpha) * lrstate.avgLuminosity;
 
 	// calculate moving average
-	lrstate.avgLuminosity = constAlpha * luminosity + (1 - constAlpha) * lrstate.avgLuminosity;
+	/* lrstate.avgLuminosity to smooth luminosity */
+	if (lrstate.minLuminosity > lrstate.avgLuminosity)
+		lrstate.minLuminosity = lrstate.avgLuminosity;
+	if (lrstate.maxLuminosity < lrstate.avgLuminosity)
+		lrstate.maxLuminosity = lrstate.avgLuminosity;
+
 	v = constrain(
 		bottomLightLimit +
 			(upperLightLimit - bottomLightLimit) *
