@@ -2934,12 +2934,12 @@ LRProcess(bool mqtt) {
 	static unsigned long	startTic=0;
 	static float lightOn=0, lightOff=0; 
 	static enum {
-		LIGHT_BOOT,
-		LIGHT_IN_BOOT,
-		LIGHT_OFF,
-		LIGHT_IN_START,
-		LIGHT_ON,
-		LIGHT_IN_STOP
+		LIGHT_BOOT		= 0,
+		LIGHT_IN_BOOT	= 1,
+		LIGHT_OFF		= 2,
+		LIGHT_IN_START	= 3,
+		LIGHT_ON		= 4,
+		LIGHT_IN_STOP	= 5
 	} state = LIGHT_BOOT;
 	unsigned long tics;
 	float luminosity;
@@ -2971,13 +2971,14 @@ LRProcess(bool mqtt) {
 	} else
 		analogWrite(PIR_LED2, 0);
 
+      //AddLog_PP(LOG_LEVEL_INFO, PSTR(" XX %d %d"), state, state > LIGHT_IN_BOOT);
+	// calculate moving average
 	lrstate.avgLuminosity = constAlpha * luminosity + (1 - constAlpha) * lrstate.avgLuminosity;
 
-	// calculate moving average
 	/* lrstate.avgLuminosity to smooth luminosity */
-	if (lrstate.minLuminosity > lrstate.avgLuminosity)
+	if (state > LIGHT_IN_BOOT && lrstate.minLuminosity > lrstate.avgLuminosity)
 		lrstate.minLuminosity = lrstate.avgLuminosity;
-	if (lrstate.maxLuminosity < lrstate.avgLuminosity)
+	if (state > LIGHT_IN_BOOT && lrstate.maxLuminosity < lrstate.avgLuminosity)
 		lrstate.maxLuminosity = lrstate.avgLuminosity;
 
 	v = constrain(
@@ -3005,6 +3006,7 @@ rerun:
 		case LIGHT_BOOT:
 			startTic = tics;
 			state = LIGHT_IN_BOOT;
+			lrstate.maxLuminosity = 0;
 			break;
 		case LIGHT_IN_BOOT:
 			if (tics - startTic > 2*1000*WINDOW_SECONDS) {
