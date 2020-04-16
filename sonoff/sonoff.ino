@@ -3066,9 +3066,11 @@ rerun:
 	if (!(state == LIGHT_BOOT || state == LIGHT_IN_BOOT || state == LIGHT_OFF)) {
 		int val = v*255.0;
 
-		if (val < 0)		val = 0;
+		if (val < 0)	val = 0;
 		if (val > 255)	val = 255;
-		lrstate.brightness = (uint8_t)val;  //((val*val)>>8);
+
+		val = 255 - val;
+		lrstate.brightness = (uint8_t)(255 - ((val*val)>>8));
 	} else {
 		lrstate.brightness = 0;
 	}
